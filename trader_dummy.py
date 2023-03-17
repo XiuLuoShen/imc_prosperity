@@ -17,6 +17,7 @@ class Trader:
         result = {}
 
         print(state.toJSON())
-        log_orders(state.timestamp, result)
+        if result:
+            log_orders(state.timestamp, result)
 
         return result

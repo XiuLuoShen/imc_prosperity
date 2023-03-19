@@ -62,12 +62,13 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
     else:
         return
 
+    
     # Buy Order
-    post_px = acceptable_price+1
+    post_px = int(np.floor(acceptable_price))-1
     orders.append(Order(product, post_px, max_long_order))
 
     # Sell Order
-    post_px = acceptable_price-1
+    post_px = int(np.ceil(acceptable_price))+1
     orders.append(Order(product, post_px, max_short_order))
 
     return orders

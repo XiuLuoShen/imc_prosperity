@@ -2,15 +2,13 @@ from typing import Dict, List
 from datamodel import OrderDepth, TradingState, Order
 import json
 
+import numpy as np
 
 POSITION_LIMITS = {
     "PEARLS": 20,
     "BANANAS": 20,
 }
 
-FAIR_PRICE = {
-    "PEARLS": 10000
-}
 
 def log_orders(timestamp, orders):
     print("{} SENT_ORDERS {}".format(timestamp, json.dumps(orders, default=lambda o: o.__dict__, sort_keys=True)))
@@ -29,22 +27,48 @@ def flatten_position(state: TradingState, product, orders: Dict[str, List[Order]
 
     return
 
+def compute_fair_price(order_depth: OrderDepth) -> float:
+    """ Compute size weighted price using orders in the state
+    """
+    total_notional = 0
+    total_size = 0
+    for px in order_depth.buy_orders.keys():
+        sz = np.abs(order_depth.buy_orders[px])
+        total_size += sz
+        total_notional += float(px)*sz
+    
+    for px in order_depth.sell_orders.keys():
+        sz = np.abs(order_depth.sell_orders[px])
+        total_size += sz
+        total_notional += float(px)*sz
+
+    return total_notional/total_size
+
+
 def alpha_trade(state: TradingState, product, orders: List[Order]):
     order_depth: OrderDepth = state.order_depths[product]
-    acceptable_price = FAIR_PRICE[product]
+    acceptable_price = compute_fair_price(order_depth)
+    curr_position = state.position.get(product, 0)
+    max_short_order = -POSITION_LIMITS[product]-curr_position
+    max_long_order = POSITION_LIMITS[product]-curr_position
 
     if len(order_depth.sell_orders) > 0:
         best_ask = min(order_depth.sell_orders.keys())
-        best_ask_volume = order_depth.sell_orders[best_ask]
-
-        if best_ask < acceptable_price:
-            orders.append(Order(product, best_ask, -best_ask_volume))
+    else:
+        return 
 
     if len(order_depth.buy_orders) != 0:
         best_bid = max(order_depth.buy_orders.keys())
-        best_bid_volume = order_depth.buy_orders[best_bid]
-        if best_bid > acceptable_price:
-            orders.append(Order(product, best_bid, -best_bid_volume))
+    else:
+        return
+
+    # Buy Order
+    post_px = acceptable_price+1
+    orders.append(Order(product, post_px, max_long_order))
+
+    # Sell Order
+    post_px = acceptable_price-1
+    orders.append(Order(product, post_px, max_short_order))
 
     return orders
 
@@ -55,14 +79,14 @@ class Trader:
 
         result = {}
         for product in state.order_depths.keys():
-            if product == 'PEARLS':
-                orders: list[Order] = []
-                if state.timestamp < 50000:
-                    alpha_trade(state, product, orders)
-                else:
-                    flatten_position(state, product, orders)
-                if orders:
-                    result[product] = orders
+            # if product == 'PEARLS':
+            orders: list[Order] = []
+            if state.timestamp < 50000:
+                alpha_trade(state, product, orders)
+            else:
+                flatten_position(state, product, orders)
+            if orders:
+                result[product] = orders
 
         if result:
             log_orders(state.timestamp, result)

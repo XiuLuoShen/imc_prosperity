@@ -1,0 +1,8 @@
+"baseline", no trades
+"db65aec5-7f9e-45e4-8054-879486bc9241", post at acceptable_price +/- 1
+"4f755e4f-4872-4462-9e6b-c046b15f434a", post at acceptable_price +/- 1 and also take
+"8f0869f1-92cf-4f57-8473-d0751a20ad05", post at acceptable_price
+"ad3515ab-8af6-4d77-bdec-6c9e48b8ee5f", post at top of book
+"2011641a-dd8d-4f99-8acd-78a48c1f946b", post at top of book + 1
+"a28eb473-d0a1-4f01-9de4-56edc2eced4a", post deeper into book
+"14466b0e-7c27-4d1e-9e65-7eb21d9c259c", post at top of book +2

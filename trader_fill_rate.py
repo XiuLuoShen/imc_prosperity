@@ -27,27 +27,9 @@ def flatten_position(state: TradingState, product, orders: Dict[str, List[Order]
 
     return
 
-def compute_fair_price(order_depth: OrderDepth) -> float:
-    """ Compute size weighted price using orders in the state
-    """
-    total_notional = 0
-    total_size = 0
-    for px in order_depth.buy_orders.keys():
-        sz = np.abs(order_depth.buy_orders[px])
-        total_size += sz
-        total_notional += float(px)*sz
-    
-    for px in order_depth.sell_orders.keys():
-        sz = np.abs(order_depth.sell_orders[px])
-        total_size += sz
-        total_notional += float(px)*sz
-
-    return total_notional/total_size
-
 
 def alpha_trade(state: TradingState, product, orders: List[Order]):
     order_depth: OrderDepth = state.order_depths[product]
-    acceptable_price = compute_fair_price(order_depth)
     curr_position = state.position.get(product, 0)
     max_short_order = -POSITION_LIMITS[product]-curr_position
     max_long_order = POSITION_LIMITS[product]-curr_position
@@ -61,14 +43,21 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
         best_bid = max(order_depth.buy_orders.keys())
     else:
         return
-
+    
+    spread = best_ask-best_bid
     # Buy Order
-    post_px = int(np.floor(acceptable_price))
-    orders.append(Order(product, post_px, max_long_order))
+    post_px = best_bid
+    if spread > 6:
+        post_px += 3
+    post_sz = min(4, max_long_order)
+    orders.append(Order(product, post_px, post_sz))
 
     # Sell Order
-    post_px = int(np.ceil(acceptable_price))
-    orders.append(Order(product, post_px, max_short_order))
+    post_px = best_ask
+    if spread > 6:
+        post_px -= 3
+    post_sz = max(-4, max_short_order)
+    orders.append(Order(product, post_px, post_sz))
 
     return orders
 

@@ -2,4 +2,4 @@
 /logs/*
 .ipynb_checkpoints/*
 !/logs/baseline.log
-!/results/baseline.csv
+!/logs/baseline.csv

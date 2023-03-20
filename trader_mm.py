@@ -47,18 +47,14 @@ def compute_fair_price(order_depth: OrderDepth) -> float:
     return total_notional/total_size
 
 
-
 def offset_bananas(fair_px: float, curr_pos: int):
-    if np.abs(curr_pos) < 10:
+    if np.abs(curr_pos) < 15:
         return fair_px
     else:
-        return fair_px-0.2*curr_pos
+        return fair_px-0.2*(curr_pos-np.sign(curr_pos)*15)
 
 def offset_pearls(fair_px: float, curr_pos: int):
-    if np.abs(curr_pos) < 10:
-        return fair_px-0.1*curr_pos
-    else:
-        return fair_px-0.1*curr_pos-0.05*(curr_pos-np.sign(curr_pos)*10)
+    return fair_px-0.1*curr_pos
     
 THEO_OFFSET_FUNC = {
     "PEARLS": offset_pearls,
@@ -89,21 +85,23 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
     else:
         return
     
+    active_buy, active_sell = False, False
     if asks[0] < acceptable_price and long_vol_avail:
         take_size = min(long_vol_avail, -ask_sizes[0]+1)
         long_vol_avail -= take_size
+        active_buy = True
         orders.append(Order(product, asks[0], take_size))
     
     if bids[0] > acceptable_price and short_vol_avail:
         take_size = max(short_vol_avail, bid_sizes[0]-1)
         short_vol_avail += take_size
+        active_sell = True
         orders.append(Order(product, bids[0], -take_size))
-
 
     if long_vol_avail:
         post_px = int(np.floor(acceptable_price))
         # Buying
-        if post_px-2 > bids[0] and curr_pos <= 10:
+        if post_px-2 > bids[0] and curr_pos <= 15:
             post_px -= 2
         elif post_px-1 > bids[0] or (post_px-1 == bids[0] and bid_sizes[0] <= 2):
             post_px -= 1
@@ -113,13 +111,12 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
     if short_vol_avail:
         # Sell Orders
         post_px = int(np.ceil(acceptable_price))
-        if post_px+2 < asks[0] and curr_pos >= -10:
+        if post_px+2 < asks[0] and curr_pos >= -15:
             post_px += 2
         elif post_px+1 < asks[0] or (post_px+1==asks[0] and ask_sizes[0] >= -2):
             post_px += 1
 
         post_sz = short_vol_avail # Hard to get filled so just yolo it
-
         orders.append(Order(product, post_px, post_sz))
 
     return orders

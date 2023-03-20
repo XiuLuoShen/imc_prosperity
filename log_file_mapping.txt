@@ -30,3 +30,15 @@
 "83583ab6-8e00-4c96-81ea-52115a1ebcbe", increase theo offset to -0.2
 "d9e47dbf-b059-4b15-abfe-266848b0134f", no theo offset
 "79529128-69f9-4b04-b0c1-3dd232b9fda0" increase theo offset after position exceeds 10
+"8bd280fc-550b-420a-95f7-1b9a02d78fee", theo-offset v2
+"701e878c-2124-4afe-8158-da03f4b46146", theo offset v3
+"df46b7a9-0d68-4643-aefa-e0500a4b1ab1", theo offset v4
+"93ee2859-ea97-4d9d-adb5-5e2f7d5be44f", change posting aggression
+"a28dd216-1f1a-4d1f-a860-29a545d65c36", increase posting aggression
+"e28115c2-c250-4719-99d9-e2186cd886f2", offset v6
+"1580b658-1d57-4675-862d-f5ec3889c3d3", testing offset
+"88f33525-04bf-4d19-82bc-34cd733d10da", active offset
+"f96bd42a-8693-4995-9142-350ca0330b28", active offset fixed
+"783d222b-ad35-45df-a7f3-20110722bbc5", posting between levels if fair value below
+"9a364d3d-3a74-4b68-b8ef-7fca5df0c359", splitting large quantity up and posting deeper (to manipulate other bot's fair price)
+"3042b6f6-309a-448a-810e-b3df69dbc68d"

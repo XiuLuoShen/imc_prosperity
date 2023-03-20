@@ -9,6 +9,11 @@ POSITION_LIMITS = {
     "BANANAS": 20,
 }
 
+THEO_OFFSET_COEFF = {
+    "PEARLS": -0.2,
+    "BANANAS": -0.2,
+}
+
 
 def log_orders(timestamp, orders):
     print("{} SENT_ORDERS {}".format(timestamp, json.dumps(orders, default=lambda o: o.__dict__, sort_keys=True)))
@@ -47,32 +52,13 @@ def compute_fair_price(order_depth: OrderDepth) -> float:
     return total_notional/total_size
 
 
-
-def offset_bananas(fair_px: float, curr_pos: int):
-    if np.abs(curr_pos) < 10:
-        return fair_px
-    else:
-        return fair_px-0.2*curr_pos
-
-def offset_pearls(fair_px: float, curr_pos: int):
-    if np.abs(curr_pos) < 10:
-        return fair_px-0.1*curr_pos
-    else:
-        return fair_px-0.1*curr_pos-0.05*(curr_pos-np.sign(curr_pos)*10)
-    
-THEO_OFFSET_FUNC = {
-    "PEARLS": offset_pearls,
-    "BANANAS": offset_bananas,
-}
-
-def offset_fair_price(fair_px: float, product, curr_pos: int):
-    return THEO_OFFSET_FUNC[product](fair_px, curr_pos)
-
 def alpha_trade(state: TradingState, product, orders: List[Order]):
     order_depth: OrderDepth = state.order_depths[product]
     acceptable_price = compute_fair_price(order_depth)
     curr_pos = state.position.get(product, 0)
-    acceptable_price = offset_fair_price(acceptable_price, product, curr_pos)
+
+    # Adjust theo
+    acceptable_price += curr_pos*THEO_OFFSET_COEFF[product]
 
     # Positive and negative
     long_vol_avail = POSITION_LIMITS[product]-curr_pos
@@ -90,16 +76,9 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
         return
     
     if asks[0] < acceptable_price and long_vol_avail:
-        take_size = min(long_vol_avail, -ask_sizes[0]+1)
+        take_size = min(long_vol_avail, -2*ask_sizes[0])
         long_vol_avail -= take_size
         orders.append(Order(product, asks[0], take_size))
-    
-    if bids[0] > acceptable_price and short_vol_avail:
-        take_size = max(short_vol_avail, bid_sizes[0]-1)
-        short_vol_avail += take_size
-        orders.append(Order(product, bids[0], -take_size))
-
-
     if long_vol_avail:
         post_px = int(np.floor(acceptable_price))
         # Buying
@@ -110,6 +89,11 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
 
         post_sz = long_vol_avail # hard to get filled so send max order
         orders.append(Order(product, post_px, post_sz))
+    
+    if bids[0] > acceptable_price and short_vol_avail:
+        take_size = max(short_vol_avail, 2*bid_sizes[0])
+        short_vol_avail += take_size
+        orders.append(Order(product, bids[0], -take_size))
     if short_vol_avail:
         # Sell Orders
         post_px = int(np.ceil(acceptable_price))
@@ -131,6 +115,8 @@ class Trader:
 
         result = {}
         for product in state.order_depths.keys():
+            if product == 'PEARLS':
+                continue
             orders: list[Order] = []
             # if state.timestamp < 50000:
             alpha_trade(state, product, orders)

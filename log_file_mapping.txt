@@ -6,3 +6,27 @@
 "2011641a-dd8d-4f99-8acd-78a48c1f946b", post at top of book + 1
 "a28eb473-d0a1-4f01-9de4-56edc2eced4a", post deeper into book
 "14466b0e-7c27-4d1e-9e65-7eb21d9c259c", post at top of book +2
+"41e0cefa-a3e6-44f6-b94c-ba25603bd193", post at top of book+3
+"5e3dec90-48ff-46f7-bb20-62579b414436", take if cross and post depending on layers in quote
+"93591b9b-f688-41ad-89a4-af25561035f7", post at acceptable price
+"8fe34bcf-713b-4d7b-a87e-e4280b1465a8", post 1 less aggressive than acceptable price
+"18d4470e-3b22-4a32-867e-0e7bd7861cc6", post 2 less aggressive
+"7c57b1b0-8b12-493e-ac31-73d2a47ca68b", version 3
+"849c94a0-ab1d-45f3-b77b-7c78cefcd003", version 4
+"19604dc7-fc84-4870-bf01-b3bee49cfca9", version 5, added theo offset=-0.2
+"db805dd6-d742-4d57-acd8-7639222bc6c0", version 5, theo offset=-0.3
+"008d89ad-5deb-4121-a46e-dcb9ab120aef", version 5 theo offset=-0.1
+"2d4db353-d908-4629-b604-7202a183a8e3", version 6 theo offset=-0.1
+"281ac96b-2019-4a66-8a0d-266a4ac59081", version 6 theo offset=-0.1 full run
+"e6e6a924-84e8-44f6-a6ef-33e88117c48d", version 7, removed trade size limitation, theo offset=-0.1
+"a2f10b5d-bb8e-4249-b892-2bb30fa11f97", version 7 full run
+"5924da0f-4b5f-404b-b60d-a90a4d923ec3", version 8 full run (bug fix)
+"3f494907-3d6f-40a1-af89-4ca5030d65a4", position offset by side
+"8a258c2d-e66a-4e2e-b5ad-095400639c6b", position offest by side
+"a7f1b06f-dfbb-4371-acd5-efea1c7cac2c", add taking strategy
+"58fa4f17-c902-453f-8ec5-60db308328d8", add taking strategy
+"3dfc3128-1b83-4095-a07f-d3fab95f9be0", fixed taking strategy
+"fd388f53-7317-4c19-94a7-ebf7dde94897", increase taking size
+"83583ab6-8e00-4c96-81ea-52115a1ebcbe", increase theo offset to -0.2
+"d9e47dbf-b059-4b15-abfe-266848b0134f", no theo offset
+"79529128-69f9-4b04-b0c1-3dd232b9fda0" increase theo offset after position exceeds 10

@@ -21,7 +21,9 @@ def flatten_position(state: TradingState, product, orders: Dict[str, List[Order]
         return
     if pos > 0:
         px = max(state.order_depths[product].buy_orders.keys())
+        pos = min(pos, 5)
     elif pos < 0:
+        pos = max(pos, -5)
         px = min(state.order_depths[product].sell_orders.keys())
     orders.append(Order(product, px, -pos))
 

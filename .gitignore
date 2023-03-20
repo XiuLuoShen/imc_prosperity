@@ -1,5 +1,4 @@
 *.csv
-/logs/*
+/tutorial_logs/*
 .ipynb_checkpoints/*
-!/logs/baseline.log
-!/logs/baseline.csv
+!/tutorial_logs/baseline.log

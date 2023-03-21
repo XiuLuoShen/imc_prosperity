@@ -80,7 +80,7 @@ def offset_bananas(fair_px: float, curr_pos: int):
         return fair_px-0.2*(curr_pos-np.sign(curr_pos)*15)
 
 def offset_pearls(fair_px: float, curr_pos: int):
-    return fair_px-0.075*curr_pos
+    return fair_px-0.05*curr_pos
     
 THEO_OFFSET_FUNC = {
     "PEARLS": offset_pearls,
@@ -92,10 +92,9 @@ def offset_fair_price(fair_px: float, product, curr_pos: int):
 
 def alpha_trade(state: TradingState, product, orders: List[Order]):
     order_depth: OrderDepth = state.order_depths[product]
-    fair_price = compute_fair_price(order_depth)
+    acceptable_price = compute_fair_price(order_depth)
     curr_pos = state.position.get(product, 0)
-    
-    acceptable_price = offset_fair_price(fair_price, product, curr_pos)
+    acceptable_price = offset_fair_price(acceptable_price, product, curr_pos)
 
     # Positive and negative
     long_vol_avail = POSITION_LIMITS[product]-curr_pos
@@ -112,18 +111,15 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
     else:
         return
     
-    mid = (bids[0] + asks[0])/2
-    spread = asks[0]-bids[0]
-
     active_buy, active_sell = False, False
     if asks[0] < acceptable_price and long_vol_avail:
-        take_size = min(long_vol_avail, ask_sizes[0]+1)
+        take_size = min(long_vol_avail, ask_sizes[0]+2)
         long_vol_avail -= take_size
         active_buy = True            
         orders.append(AlgoOrder(product, asks[0], 'BUY', take_size, note='X'))
 
     if bids[0] > acceptable_price and short_vol_avail:
-        take_size = min(short_vol_avail, bid_sizes[0]+1)
+        take_size = min(short_vol_avail, bid_sizes[0]+2)
         short_vol_avail -= take_size
         active_sell = True
         orders.append(AlgoOrder(product, bids[0], 'SELL', take_size, note='X'))
@@ -134,11 +130,6 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
         if post_px-2 > bids[0]:
             post_sz = long_vol_avail
             long_vol_avail -= post_sz
-
-            if post_sz > 20 and spread >= 4:
-                orders.append(AlgoOrder(product, post_px-1, 'BUY', 1, note='P2_1'))
-                post_sz -= 1
-                
             orders.append(AlgoOrder(product, post_px-2, 'BUY', post_sz, note='P2'))
         elif long_vol_avail and (post_px-1 > bids[0] or (post_px-1 == bids[0] and bid_sizes[0] <= 2)):
             post_sz = long_vol_avail
@@ -154,11 +145,6 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
         if post_px+2 < asks[0]:
             post_sz = short_vol_avail
             short_vol_avail -= post_sz
-
-            if post_sz > 20 and spread >= 4:
-                orders.append(AlgoOrder(product, post_px+1, 'SELL', 1, note='P2_1'))
-                post_sz -= 1
-
             orders.append(AlgoOrder(product, post_px+2, 'SELL', post_sz, note='P2'))
         elif (post_px+1 < asks[0] or (post_px+1==asks[0] and ask_sizes[0] >= -2)) and short_vol_avail:
             post_sz = short_vol_avail
@@ -167,7 +153,6 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
         else:
             post_sz = short_vol_avail # Hard to get filled so just yolo it
             orders.append(AlgoOrder(product, post_px, 'SELL', post_sz, note='P0'))
-
     return orders
 
 class Trader:

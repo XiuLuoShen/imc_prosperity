@@ -334,3 +334,40 @@ active_buy, active_sell = False, False
             orders.append(Order(product, asks[-1], post_sz))
         else:
             orders.append(Order(product, post_px, post_sz))
+
+
+
+# Baseline 
+# Buying
+    if long_vol_avail:
+        post_px = int(np.floor(acceptable_price))
+        if post_px-2 > bids[0]:
+            post_sz = long_vol_avail
+            long_vol_avail -= post_sz
+            orders.append(AlgoOrder(product, post_px-2, 'BUY', post_sz, note='P2'))
+            
+        if long_vol_avail and post_px-1 > bids[0] or (post_px-1 == bids[0] and bid_sizes[0] <= 2):
+            post_sz = long_vol_avail
+            long_vol_avail = post_sz
+            orders.append(AlgoOrder(product, post_px-1, 'BUY', post_sz, note='P1'))
+            
+        if long_vol_avail:
+            post_sz = long_vol_avail # hard to get filled so send max order
+            orders.append(AlgoOrder(product, post_px, 'BUY', post_sz, note='P0'))
+        
+    # Sell Orders
+    if short_vol_avail:
+        post_px = int(np.ceil(acceptable_price))
+        if post_px+2 < asks[0]:
+            post_sz = short_vol_avail
+            short_vol_avail -= post_sz
+            orders.append(AlgoOrder(product, post_px+2, 'SELL', post_sz, note='P2'))
+        
+        if post_px+1 < asks[0] or (post_px+1==asks[0] and ask_sizes[0] <= 2) and short_vol_avail:
+            post_sz = short_vol_avail
+            short_vol_avail -= post_sz
+            orders.append(AlgoOrder(product, post_px+1, 'SELL', post_sz, note='P1'))
+
+        if short_vol_avail:
+            post_sz = short_vol_avail # Hard to get filled so just yolo it
+            orders.append(AlgoOrder(product, post_px, 'SELL', post_sz, note='P0'))

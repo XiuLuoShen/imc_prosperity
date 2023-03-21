@@ -2,3 +2,4 @@
 /tutorial_logs/*
 .ipynb_checkpoints/*
 !/tutorial_logs/baseline.log
+/round1_logs/*

@@ -32,25 +32,18 @@ class Order:
 
 class OrderDepth:
     def __init__(self):
-        # Price: Quantity, note that quantity for sell orders will be negative
         self.buy_orders: Dict[int, int] = {}
         self.sell_orders: Dict[int, int] = {}
 
 
 class Trade:
-    def __init__(self, symbol: Symbol, price: int, quantity: int, buyer: UserId = "", seller: UserId = "") -> None:
+    def __init__(self, symbol: Symbol, price: int, quantity: int, buyer: UserId = None, seller: UserId = None, timestamp: int = 0) -> None:
         self.symbol = symbol
         self.price: int = price
         self.quantity: int = quantity
         self.buyer = buyer
         self.seller = seller
-
-    def __str__(self) -> str:
-        return "(" + self.symbol + ", " + self.buyer + " << " + self.seller + ", " + str(self.price) + ", " + str(self.quantity) + ")"
-
-    def __repr__(self) -> str:
-        return "(" + self.symbol + ", " + self.buyer + " << " + self.seller + ", " + str(self.price) + ", " + str(self.quantity) + ")"
-
+        self.timestamp = timestamp
 
 class TradingState(object):
     def __init__(self,

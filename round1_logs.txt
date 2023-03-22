@@ -43,3 +43,24 @@ b879a2ba-e70d-4c5b-83c4-2f8e3fe76245", back to <= 2
 877598b8-248f-47b1-a3fe-a670d7927680.log P0 only if offsetting
 717e0907-4f0d-4a80-b154-8663dade3fb1.log
 27b79a61-14f0-4964-a878-7dd725621311.log P0 offsetting and capping to offset to 0
+5aed0457-e620-4803-b178-ecdc24668384.log
+6a88367f-0fe5-4a36-8dd9-9a3d3eb94aec.log
+34f13c1f-2e07-4552-8353-3e04d939ac9c.log removing position requirement for p3, p4 - same pnl, less volume
+a494990f-5664-4214-a496-f01c9b98c79d.log P1_1 for offset only
+8150f3f6-5b17-4e1b-93d2-42b1b736df34.log P1 for offset only
+230b9855-34da-4d00-8983-9d05d440cf3a.log P0 offset if larger than 5
+afda66b9-a91a-4818-a42a-b14bb3cd8466.log P0 if not larger than 5
+f3e0bd16-a171-471c-ac2c-e72775075f9f.log Final version testing
+977dc84c-af0c-4a62-a13e-7ba81db5fbae
+912e6fee-08ad-4f9a-9ca5-4539b97dafab.log Final version done
+12edcb62-97c1-40a4-ad51-a433fb7b8188.log Final version - Calvins's acc
+
+e1bfa845-e399-4bc4-9944-03088d04c12a.log Changing banana's theo to go from 8 with 0.1
+5ef60721-cb77-4188-aa80-9a27de6bb1b5.log start from 8-> 5 worse
+619c60cc-b190-498c-82a2-99039d6483e1.log start from 8->10
+8bbf5a70-4c89-4f8a-93c2-dda55e6277f9.log start from 5 with slope -0.05
+0d5d383a-7abb-441e-8749-19193ea0b8cb.log slope -0.75
+d2ba6a89-3618-41a7-b46f-5abd77aa2670.log slope 0.8
+a5c4cc94-b66c-4c20-8e3c-45ddbf1114cf.log changing pearls from 0.025 to piecewise from 10 with 0.05
+6cc79787-7b94-47ad-a468-607a6e3249c3.log pearls slope 0.04
+39fec512-d755-42c7-9777-a51a40b0c94c.log 0.02

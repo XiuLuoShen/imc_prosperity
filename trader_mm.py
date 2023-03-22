@@ -155,8 +155,8 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
                 post_sz = long_vol_avail
                 long_vol_avail -= post_sz
                 orders.append(AlgoOrder(product, post_px-1, 'BUY', post_sz, note='P1_1'))
-        else:
-            post_sz = long_vol_avail # hard to get filled so send max order
+        elif curr_pos <= 0:
+            post_sz = abs(curr_pos) # hard to get filled so send max order
             orders.append(AlgoOrder(product, post_px, 'BUY', post_sz, note='P0'))
         
     # Sell Orders
@@ -186,8 +186,8 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
                 post_sz = short_vol_avail
                 short_vol_avail -= post_sz
                 orders.append(AlgoOrder(product, post_px+1, 'SELL', post_sz, note='P1_1'))
-        else:
-            post_sz = short_vol_avail # Hard to get filled so just yolo it
+        elif curr_pos >= 0:
+            post_sz = abs(curr_pos) # Hard to get filled so just yolo it
             orders.append(AlgoOrder(product, post_px, 'SELL', post_sz, note='P0'))
 
     return orders

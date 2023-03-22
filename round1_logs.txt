@@ -38,3 +38,8 @@ b879a2ba-e70d-4c5b-83c4-2f8e3fe76245", back to <= 2
 "ca22d855-0f2b-43b3-9712-0a75bff29d2b", curr_pos <= 19
 "3ba5efaa-4d22-43d3-b4bd-143f2bdf31e0", testing P3
 6f950556-9c70-4ca1-8ffe-1886d6b70cbe.log more P3
+849e8c9f-5851-4eec-b839-31d53ec98a7b.log P4
+04b80fef-fd53-43f8-99fd-4afa36eb5153.log removing P0
+877598b8-248f-47b1-a3fe-a670d7927680.log P0 only if offsetting
+717e0907-4f0d-4a80-b154-8663dade3fb1.log
+27b79a61-14f0-4964-a878-7dd725621311.log P0 offsetting and capping to offset to 0

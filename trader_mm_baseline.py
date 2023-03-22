@@ -130,7 +130,11 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
 
     if long_vol_avail > 0:
         post_px = int(np.floor(acceptable_price))
-        if post_px-3 > bids[0] and curr_pos >= -19:
+        if post_px-4 > bids[0] and curr_pos >= -19:
+            post_sz = long_vol_avail
+            long_vol_avail -= post_sz
+            orders.append(AlgoOrder(product, post_px-4, 'BUY', post_sz, note='P4'))
+        elif post_px-3 > bids[0] and curr_pos >= -19:
             post_sz = long_vol_avail
             long_vol_avail -= post_sz
             orders.append(AlgoOrder(product, post_px-3, 'BUY', post_sz, note='P3'))
@@ -157,7 +161,11 @@ def alpha_trade(state: TradingState, product, orders: List[Order]):
     # Sell Orders
     if short_vol_avail:
         post_px = int(np.ceil(acceptable_price))
-        if post_px+3 < asks[0] and curr_pos <= 19:
+        if post_px+4 < asks[0] and curr_pos <= 19:
+            post_sz = short_vol_avail
+            short_vol_avail -= post_sz
+            orders.append(AlgoOrder(product, post_px+4, 'SELL', post_sz, note='P4'))
+        elif post_px+3 < asks[0] and curr_pos <= 19:
             post_sz = short_vol_avail
             short_vol_avail -= post_sz
             orders.append(AlgoOrder(product, post_px+3, 'SELL', post_sz, note='P3'))

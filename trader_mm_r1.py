@@ -264,14 +264,15 @@ class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
         result = {}
         for product in state.order_depths.keys():
-            orders: list[Order] = alpha_trade(state, product)
-            if orders:
-                result[product] = orders
+            if product in POSITION_LIMITS:
+                orders: list[Order] = alpha_trade(state, product)
+                if orders:
+                    result[product] = orders
 
-        # update_state_trades(state)
-        # print(state.toJSON())
-        # if result:
-        #     log_orders(state.timestamp, result)
+        update_state_trades(state)
+        print(state.toJSON())
+        if result:
+            log_orders(state.timestamp, result)
 
         if result:
             for product in result.keys():

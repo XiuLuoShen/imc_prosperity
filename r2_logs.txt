@@ -1,0 +1,32 @@
+f88c65ce-b739-41f8-b171-ec8016017352 no strategy just outputs
+6ef54826-1f61-4d22-a31c-f4f0903fa734.log r1 strategy
+19128c16-93ed-4dde-ab1d-cf6936ef1a59.log offset one side only
+b23805a6-6f24-4be5-8fe0-d7f62683d71b.log remove p0
+5ad0633f-3d9b-497c-9159-cfaf9f7f69e4.log when taking update top of book price level for posting
+59912858-844a-4e04-a9fd-c50eb9c8fdac.log
+2089a015-f9b9-431d-b5fe-97a5a6d6ba1a.log P0 for extreme offset only
+42196648-311f-4d96-9582-36ca3d0f8f7f.log clean no P0
+5046e61f-e24e-4a47-adbc-a7dbebddd2d8.log P0 to offset
+ebf64b7f-7f58-4676-8c15-badc6b34a17b.log always post P1 or better
+6ba12d78-e67a-429a-8e9e-da78efe1d613.log post P1 or better or don't post
+c449275a-0ec1-40e9-ac2f-24897fbaa772.log always post P2 or better
+3fa9a0f4-5860-40d9-898f-fcd5bf2bb510.log post p1_2 or better
+le take more and adjust
+
+6ffaf3cf-be3c-4c5b-b2de-8196d2263171.log always post P1 or better -> good
+125c0e0f-da56-43e8-9d23-f697983e080c.log remove P1_1 and P0 only to offset, might not always post -> good
+a8336a47-8d09-4dc7-a673-4cc1dbee56bc.log simple P4 to P0 - bad
+0e0949f1-0453-4115-ad43-24e1064b6c4f.log adjust position when taking, expect little difference - small improvement
+0424b5e2-d9c8-4a63-920a-fb4df4cbc8f1.log adjust fair price offset after taking, expect large difference -> no difference
+1f9e2c5f-3485-4a23-88a6-c066ea4f15d5.log adjust fair price using new quote after taking, expect large difference - no difference
+6f9c7f9e-bce2-4570-bccf-eea65e886b6d.log - increase pearls theo offset - no difference
+0b0b8529-0382-4435-9cde-8c119696d645.log pearls no theo offset - worse
+d4b19bf0-5392-4783-8a14-06306385d50f.log remove position restriction for p4-p2 - not useful
+d5c4e94f-047d-4dd1-9da9-608342aa10ab.log restrict posting size to maximum of 15 for pearls - good
+e8e94b54-d791-4257-b3bb-6cc6bd4472b3.log pearls p0 default, remove restriction for bananas - helps a bit
+ed50fa81-1490-4274-9428-55991717c671.log restricting posting size of pearls to 13 and bananas to 20 - helps bananas significantly
+50805934-ce66-428c-bba0-ecd833bb365b.log restricting posting size of pearls to 10, bananas to 15
+63a46ca0-5f25-4997-8e21-a62e014b30dc.log max size 5 and 10 - bad
+68eeb771-7a04-4214-8804-d84c793af0c0.log restrict based on quote size
+f4a98a64-1f62-4529-89e1-7c189ac51d62.log pearls 12, bananas 20
+e6074822-e820-44f6-9173-e2e828968a06.log P0 only if not too extreme

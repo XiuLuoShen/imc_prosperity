@@ -7,6 +7,15 @@ POSITION_LIMITS = {
     "BANANAS": 20,
 }
 
+def update_state_trades(state):
+    # Update timestamp of trades for logging
+    time = state.timestamp
+    for symbol in state.market_trades.keys():
+        for trade in state.market_trades[symbol]:
+            if trade.timestamp == time:
+                trade.timestamp = time-100
+    return
+
 def log_orders(timestamp, orders):
     print("{} SENT_ORDERS {}".format(timestamp, json.dumps(orders, default=lambda o: o.__dict__, sort_keys=True)))
 
@@ -16,17 +25,7 @@ class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
         result = {}
 
-        for product in state.order_depths.keys():
-
-            # Check if the current product is the 'PEARLS' product, only then run the order logic
-            if product == 'PEARLS':
-
-                # Retrieve the Order Depth containing all the market BUY and SELL orders for PEARLS
-                order_depth: OrderDepth = state.order_depths[product]
-                print(order_depth.buy_orders.keys())
-                print(order_depth.sell_orders.keys())
-
-
+        update_state_trades(state)
         print(state.toJSON())
         if result:
             log_orders(state.timestamp, result)

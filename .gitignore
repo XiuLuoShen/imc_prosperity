@@ -3,3 +3,4 @@
 .ipynb_checkpoints/*
 !/tutorial_logs/baseline.log
 /round1_logs/*
+/round2_logs/*

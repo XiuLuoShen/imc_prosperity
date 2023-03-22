@@ -1,0 +1,40 @@
+"17110e00-a2bb-4fdc-932a-e88dbe5eedd5", baseline
+4cb06b59-8b9f-496b-9aec-716074b520d2, splitting up large orders
+8ef126d3-b096-4b38-abe8-918d660389a8, attempting price manipulation
+5143086a-db34-4e24-afb3-d624e3550da1, attempting price manipulation v2
+aa30ca9d-e47f-4baa-8334-175c4265c9af.log, px manip, remainder at top of book
+abe02eb0-d850-4da0-8dd0-fecdea60d8f8, baseline with bug fix
+6c6dd40c-8a3c-446a-bd06-47de5391459c, new baseline
+"247ef241-f00f-4c13-82d7-44ed3a9eb0f5", restricting posting ask_sizes
+"ebf249fc-a236-4d3e-bc6e-3f24ada9dd09", restricting sizes
+"97d3dc75-bdf2-4639-9c2c-c952b1bfe190", new baseline 2996
+3b8bb1e2-c4f0-4493-ae58-6ae679ff7cd6.log reduce pearls theo offset to 0.075
+0569884f-ec0f-4b3b-9f37-fae1d4e917bf.log reduce pearls theo offest to 0.05
+8ac45266-eaa7-457e-b46f-1a2d5b9740e0.log increase take size
+when quantity is large and posting P2, post 1 share more aggressively , best
+61d23070-68ce-4b08-bdb6-8eb199b3f898.log
+"947f26ce-de6d-4943-ad55-59bc2f08f6a6.log" change bananas theo offest
+"a2138252-3fc8-4bae-9b6c-c32e3c716a1f", prevent opposite side P2 passive if active
+"c30a3246-26b2-4812-9dfb-df8801ffb6d4", prevent same side passive P2 if active
+"6fb44e4c-bf75-4392-bbc8-bf6c37800ab4", take using fair price without offset
+"a0b6dd73-a33e-4daf-90db-a843e3385efe", remove condition for P1
+"2650b419-2dd4-4acf-bd2e-0627e54704c2", reduce theo offset for PEARLS
+"a63599cc-7f9b-4f13-8c3a-49327a2af226", piece wise offset for pearls
+"43cd66d0-7efe-4d64-aea0-a95619e95463", restrict P2
+"5927a53f-f458-49b9-ba42-bc08e56dbfe5", restrict P2 and P1 - worse than previous
+"2e4a799d-6a03-4d98-af6b-13482bbe41eb", add 1 for large order sizes
+"c377be5d-34f3-4745-b904-adf8fe98bd0e", add back P1 condition but post 1 at P0
+"eb53464e-c843-4075-b26d-1b34e9ef4316", same as above but bug fix
+"043b4212-3427-467d-88c4-c5407f22bd2e", P1_1 = 1
+"c8847cc4-66bc-4f93-8a75-4c0ba51cbb3d", P1_1 <=5
+"f9fd725c-17b3-4cb2-b7a7-548821634970", increase P1_1 size
+"20c9834b-11ba-45d3-b20f-d4570f1c655d", P1_1 <= 3
+b879a2ba-e70d-4c5b-83c4-2f8e3fe76245", back to <= 2
+"9af94cf0-1648-41b1-953d-7bb7f32ae9a9", fix P1_1 size to 2
+"8ced27b4-48c5-4e2b-99d7-8267778be0ef", increase taking
+"dd908ecb-6f4e-4178-b2c1-812a159ed64d", restrict taking
+"dd606bb9-0b68-4f8c-a687-bcb041ae9e50", baseline and fix P2 bug
+"f16f75c5-c005-4c97-ab48-f1fc15d0ec44", curr_pos <= 18 for P2
+"ca22d855-0f2b-43b3-9712-0a75bff29d2b", curr_pos <= 19
+"3ba5efaa-4d22-43d3-b4bd-143f2bdf31e0", testing P3
+6f950556-9c70-4ca1-8ffe-1886d6b70cbe.log more P3

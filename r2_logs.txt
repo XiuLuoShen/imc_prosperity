@@ -12,7 +12,6 @@ ebf64b7f-7f58-4676-8c15-badc6b34a17b.log always post P1 or better
 c449275a-0ec1-40e9-ac2f-24897fbaa772.log always post P2 or better
 3fa9a0f4-5860-40d9-898f-fcd5bf2bb510.log post p1_2 or better
 le take more and adjust
-
 6ffaf3cf-be3c-4c5b-b2de-8196d2263171.log always post P1 or better -> good
 125c0e0f-da56-43e8-9d23-f697983e080c.log remove P1_1 and P0 only to offset, might not always post -> good
 a8336a47-8d09-4dc7-a673-4cc1dbee56bc.log simple P4 to P0 - bad
@@ -30,3 +29,13 @@ ed50fa81-1490-4274-9428-55991717c671.log restricting posting size of pearls to 1
 68eeb771-7a04-4214-8804-d84c793af0c0.log restrict based on quote size
 f4a98a64-1f62-4529-89e1-7c189ac51d62.log pearls 12, bananas 20
 e6074822-e820-44f6-9173-e2e828968a06.log P0 only if not too extreme
+2051fd50-f8a7-4ed7-a13d-ec70ac6379a0.log test posting for r2 assets
+9f47348f-1a5d-4adf-853e-9f5ed251bde1.log posting 1 for r2
+e047a45c-5306-48d6-bea6-5e5b391d5fbb.log pair trading r2, cross spread when signal > 0.5
+41a2a08a-0d30-45f5-a29b-f342b0f6d717.log use dist fair as an offset to mid
+ccaeeb71-a6bf-4142-a2d8-7562431bf459.log use dist fair as an offset to top of book and post
+ba732f27-5392-4475-93f2-0970c1a89240.log
+627a90c8-6c1f-4e23-8e90-0c9a18cd7e01.log market making all
+232c5734-ad25-4920-85dc-a683af9f0ed5.log
+edb1740d-3727-408a-9bb4-3c7d854790f0.log
+5302ee1e-a982-4f8a-87ec-ad8fa2191f7c.log add offset

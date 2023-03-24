@@ -308,7 +308,7 @@ def ema_calculate(new_entry, prev_ema, alpha):
 
 def target_pairs_position(z_score, past_zscore, curr_pos):
     # Target position for pina coladas
-    entry = 2.25
+    entry = 1.75
     if z_score >= entry:
         target_pos = np.floor((z_score-entry)*100)
         return target_pos, 'enter_long'
@@ -316,7 +316,7 @@ def target_pairs_position(z_score, past_zscore, curr_pos):
         target_pos = np.ceil((z_score+entry)*100)
         return target_pos, 'enter_short'
 
-    exit_active = 0.25 # other side
+    exit_active = 0.75 # other side
     if curr_pos > 0 and z_score < -exit_active:
         return 0, 'exit_active'
     elif curr_pos > 0 and z_score < 0:
@@ -354,8 +354,8 @@ def alpha_trade_pair1(state: TradingState):
     
     trader_state['PAIR1']['LAST_TIME'] = state.timestamp
     trader_state['PAIR1']['RAW_SIGNALS'].append(raw_signal)
-    win1 = 10
-    win2 = 50
+    win1 = 20
+    win2 = 100
     if len(trader_state['PAIR1']['RAW_SIGNALS']) < win1:
         trader_state['PAIR1']['EMA_1'] = np.mean(trader_state['PAIR1']['RAW_SIGNALS'])
         trader_state['PAIR1']['EMA_2'] = np.mean(trader_state['PAIR1']['RAW_SIGNALS'])
@@ -458,6 +458,7 @@ def alpha_trade_pair1(state: TradingState):
 
         # order_sz2 = min(order_sz2, bid_sizes2[sym2])
         orders2.append(AlgoOrder(sym2, asks2[0], 'BUY', order_sz, note=f'Pair_{action}'))
+
 
     return orders1, orders2
 

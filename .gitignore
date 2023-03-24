@@ -4,3 +4,7 @@
 !/tutorial_logs/baseline.log
 /round1_logs/*
 /round2_logs/*
+/round3_logs/*
+/backtest_logs/*
+__pycache__/
+hist_data/__MACOSX/

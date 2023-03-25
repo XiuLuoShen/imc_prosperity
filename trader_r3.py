@@ -25,29 +25,6 @@ PAIRS = {
     'PINA_COLADAS': 'COCONUTS'
 }
 
-def reset_state():
-    print("HARD RESET OF GLOBAL VARIABLES OCCURED")
-    global trader_state
-    trader_state = {
-        'PAIR1': {'RAW_SIGNALS':[],
-                'EMA_1': 0,
-                'EMA_2': 0,
-                'LAST_TIME': 0,
-                'PAST_SIGNALS': [],
-                }
-    }
-    return
-
-
-trader_state = {
-    'PAIR1': {'RAW_SIGNALS':[],
-              'EMA_1': 0,
-              'EMA_2': 0,
-              'LAST_TIME': 0,
-              'PAST_SIGNALS': [],
-              }
-}
-
 class AlgoOrder:
     def __init__(self, symbol: str, price: int, side: str, quantity: int, note: str = 'None'):
         self.symbol = symbol
@@ -305,29 +282,24 @@ def alpha_trade(state: TradingState, product):
     return orders
 
 
-def ema_calculate(new_entry, prev_ema, alpha):
-    return new_entry*alpha+prev_ema*(1-alpha)
-
 def target_pairs_position(z_score, past_zscore, curr_pos):
     # Target position for pina coladas
-    entry = 1.75
+    entry = 1
     if z_score >= entry:
-        target_pos = np.floor((z_score-entry)*100)
+        target_pos = np.floor((z_score-entry)*125)
         return target_pos, 'enter_long'
     if z_score <= -entry:
-        target_pos = np.ceil((z_score+entry)*100)
+        target_pos = np.ceil((z_score+entry)*125)
         return target_pos, 'enter_short'
 
-    exit_active = 0.75 # other side
-    if curr_pos > 0 and z_score < -exit_active:
+    exit_active = 0.1 # other side
+    if curr_pos > 0 and z_score < exit_active:
         return 0, 'exit_active'
-    elif curr_pos > 0 and z_score < 0:
-        return 0, 'exit_passive'
     
-    if curr_pos < 0 and z_score > exit_active:
+    if curr_pos < 0 and z_score > -exit_active:
         return 0, 'exit_active'
-    elif curr_pos < 0 and z_score > 0:
-        return 0, 'exit_passive'
+    # elif curr_pos < 0 and z_score > 0:
+    #     return 0, 'exit_passive'
     
     return curr_pos, 'NO_TRADE'
 
@@ -348,43 +320,13 @@ def alpha_trade_pair1(state: TradingState):
 
     mid1 = (bids1[0] + asks1[0])/2
     mid2 = (bids2[0] + asks2[0])/2
-    raw_signal = 100*(mid2/mid1-15/8)
-
-    global trader_state
-    if state.timestamp - trader_state['PAIR1']['LAST_TIME'] > 300:
-        reset_state()
-    
-    trader_state['PAIR1']['LAST_TIME'] = state.timestamp
-    trader_state['PAIR1']['RAW_SIGNALS'].append(raw_signal)
-    win1 = 20
-    win2 = 100
-    if len(trader_state['PAIR1']['RAW_SIGNALS']) < win1:
-        trader_state['PAIR1']['EMA_1'] = np.mean(trader_state['PAIR1']['RAW_SIGNALS'])
-        trader_state['PAIR1']['EMA_2'] = np.mean(trader_state['PAIR1']['RAW_SIGNALS'])
-    elif len(trader_state['PAIR1']['RAW_SIGNALS']) < win2:
-        trader_state['PAIR1']['EMA_1'] = ema_calculate(raw_signal,trader_state['PAIR1']['EMA_1'], 1/win1)
-        trader_state['PAIR1']['EMA_2'] = np.mean(trader_state['PAIR1']['RAW_SIGNALS'])
-    else:
-        trader_state['PAIR1']['EMA_1'] = ema_calculate(raw_signal,trader_state['PAIR1']['EMA_1'], 1/win1)
-        trader_state['PAIR1']['EMA_2'] = ema_calculate(raw_signal,trader_state['PAIR1']['EMA_2'], 1/win2)
-    if len(trader_state['PAIR1']['RAW_SIGNALS']) < 10:
-        return [], []
-    if len(trader_state['PAIR1']['RAW_SIGNALS']) > 100:
-        trader_state['PAIR1']['RAW_SIGNALS'].pop(0)
-    
-    signal_std = np.std(trader_state['PAIR1']['RAW_SIGNALS'])
-    z_score = -1*(trader_state['PAIR1']['EMA_1']-trader_state['PAIR1']['EMA_2'])*20
-
-    trader_state['PAIR1']['PAST_SIGNALS'].append(z_score)
-    if len(trader_state['PAIR1']['PAST_SIGNALS']) > 20:
-        trader_state['PAIR1']['PAST_SIGNALS'].pop(0)
-    past_zscore = trader_state['PAIR1']['PAST_SIGNALS'][0]
-    # print(f"ZSCORE {z_score:.3} {trader_state['PAIR1']['EMA_1']:.3} {trader_state['PAIR1']['EMA_2']:.3} {signal_std:.3}", end='')
+    signal = (mid2-15000)-2*(mid1-8000)
+    signal /= -30
     
     curr_pos1 = state.position.get(sym1, 0)
     curr_pos2 = state.position.get(sym2, 0)
     # Target position based on pina coladas
-    target_pos2, action = target_pairs_position(z_score, past_zscore, curr_pos2)
+    target_pos2, action = target_pairs_position(signal, signal, curr_pos2)
     # Clip
     target_pos2 = max(target_pos2, -POSITION_LIMITS[sym2])
     target_pos2 = min(target_pos2, POSITION_LIMITS[sym2])
@@ -464,9 +406,35 @@ def alpha_trade_pair1(state: TradingState):
     return orders1, orders2
 
 
+def alpha_trade_diving_gear(state: TradingState):
+    order_depth: OrderDepth = state.order_depths['DIVING_GEAR']
+    valid, bids, asks, bid_sizes, ask_sizes = get_bids_asks(order_depth)
+    if not valid:
+        return []
+    
+    dolphins = state.observations.get('DOLPHIN_SIGHTINGS', None)
+    if dolphins == None:
+        return []
+    
+    mid = (bids[0]+asks[0])/2
+    fair_price = mid*0.999152+dolphins*0.0275947
+    signal = fair_price-mid
+
+    curr_pos = state.position.get('DIVING_GEAR', 0)
+
+    orders = []
+    if signal > 0.25 and curr_pos < POSITION_LIMITS['DIVING_GEAR']:
+        orders.append(AlgoOrder('DIVING_GEAR', asks[0], 'BUY', 1, note=f'X0'))
+    if signal < -0.25 and curr_pos > POSITION_LIMITS['DIVING_GEAR']:
+        orders.append(AlgoOrder('DIVING_GEAR', bids[0], 'SELL', 1, note=f'X0'))
+
+    return orders
+
+
 class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
         result = {}
+        print(f"State: {state.timestamp}")
 
         for product in ['BANANAS','PEARLS']:
             if product in state.order_depths.keys():
@@ -485,6 +453,11 @@ class Trader:
                 result['COCONUTS'] = orders1
             if orders2:
                 result['PINA_COLADAS'] = orders2
+        
+        if 'DIVING_GEAR' in state.order_depths.keys():
+            orders = alpha_trade_diving_gear(state)
+            if orders:
+                result['DIVING_GEAR'] = orders
         
         update_state_trades(state)
         print(f'\n{state.timestamp} {state.toJSON()}')

@@ -466,6 +466,7 @@ def alpha_trade_pair1(state: TradingState):
 class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
         result = {}
+        print(f"State: {state.timestamp}")
 
         for product in ['BANANAS','PEARLS']:
             if product in state.order_depths.keys():
@@ -484,7 +485,6 @@ class Trader:
                 result['COCONUTS'] = orders1
             if orders2:
                 result['PINA_COLADAS'] = orders2
-        
         update_state_trades(state)
         print(f'\n{state.timestamp} {state.toJSON()}')
         if result:

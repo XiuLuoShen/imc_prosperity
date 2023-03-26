@@ -3,9 +3,11 @@ from trader_r3 import Trader
 from datamodel import *
 from typing import Any
 import pandas as pd
+import numpy as np
 import statistics
 import copy
 import uuid
+import json
 
 import sys
 sys.stdout = open('./backtest_logs/backtest.log','wt')
@@ -32,6 +34,9 @@ def process_prices(df_prices, time_limit) -> dict[int, TradingState]:
             states[time] = TradingState(time, listings, depths, own_trades, market_trades, position, observations)
 
         states[time].listings[product] = Listing(product, product, product)
+        if np.isnan(row["bid_price_1"]):
+            states[time].observations[product] = row["mid_price"]
+            continue
         depth = OrderDepth()
         if row["bid_price_1"]> 0:
             depth.buy_orders[row["bid_price_1"]] = int(row["bid_volume_1"])
@@ -45,6 +50,7 @@ def process_prices(df_prices, time_limit) -> dict[int, TradingState]:
             depth.sell_orders[row["ask_price_2"]] = int(row["ask_volume_2"])
         if row["ask_price_3"]> 0:
             depth.sell_orders[row["ask_price_3"]] = int(row["ask_volume_3"])
+        
         states[time].order_depths[product] = depth
 
         if product not in states[time].position:
@@ -74,7 +80,9 @@ current_limits = {
     'PEARLS': 20,
     'BANANAS': 20,
     'COCONUTS': 600,
-    'PINA_COLADAS': 300
+    'PINA_COLADAS': 300,
+    'DIVING_GEAR': 50,
+    'BERRIES': 250,
 }
 
 # Setting a high time_limit can be harder to visualize
@@ -89,7 +97,7 @@ def simulate_alternative(round: int, day: int, trader, time_limit=999900):
     for time, state in states.items():
         position = copy.copy(state.position)
         orders = trader.run(copy.copy(state))
-        trades = clear_order_book(orders, state.order_depths, time)
+        trades = clear_order_book(orders, state.order_depths, time, state.market_trades)
         if len(trades) > 0:
             grouped_by_symbol = {}
             for trade in trades:
@@ -98,6 +106,7 @@ def simulate_alternative(round: int, day: int, trader, time_limit=999900):
                 n_position = position[trade.symbol] + trade.quantity 
                 if abs(n_position) > current_limits[trade.symbol]:
                     print("ILLEGAL TRADE, WOULD EXCEED POSITION LIMIT, KILLING ALL REMAINING ORDERS")
+                    print(json.dumps(trades,default=lambda o: o.__dict__, sort_keys=True))
                 #     break
                 position[trade.symbol] = n_position
                 trade.quantity = abs(trade.quantity)
@@ -111,19 +120,22 @@ def simulate_alternative(round: int, day: int, trader, time_limit=999900):
 def cleanup_order_volumes(org_orders: List[Order]) -> List[Order]:
     buy_orders, sell_orders = [], []
 
-    for order_1 in org_orders:
+    for i in range(len(org_orders)):
+        order_1 = org_orders[i]
         final_order = copy.copy(order_1)
-        for order_2 in org_orders:
+        for j in range(i+1, len(org_orders)):
+            order_2 = org_orders[j]
             if order_1 == order_2:
                continue 
-            if order_1.price == order_2.price:
+            if order_1.price == order_2.price and order_2.quantity != 0:
                 final_order.quantity += order_2.quantity
+                order_2.quantity = 0
         if final_order.quantity < 0:
             sell_orders.append(final_order)
         elif final_order.quantity > 0:
             buy_orders.append(final_order)
-    buy_orders.sort(key=lambda x: x.price, reverse=True)
-    sell_orders.sort(key=lambda x: x.price)
+    buy_orders.sort(key=lambda x: x.price, reverse=True) # order by most aggressive
+    sell_orders.sort(key=lambda x: x.price) # order by most aggressive
     return buy_orders, sell_orders
 
 def get_bids_asks(order_depth):
@@ -139,11 +151,13 @@ def get_bids_asks(order_depth):
         return [], [], [], []
     return bids, asks, bid_sizes, ask_sizes
 
-def clear_order_book(trader_orders: dict[str, List[Order]], order_depth: dict[str, OrderDepth], time: int) -> list[Trade]:
+def clear_order_book(trader_orders: dict[str, List[Order]], order_depth: dict[str, OrderDepth], time: int, market_trades) -> list[Trade]:
     trades = []
     for symbol in trader_orders.keys():
         if order_depth.get(symbol) != None:
             bids, asks, bid_sizes, ask_sizes = get_bids_asks(order_depth[symbol])
+            best_bid = bids[0]
+            best_ask = asks[0]
             buy_orders, sell_orders = cleanup_order_volumes(trader_orders[symbol])
             for order in buy_orders:
                 while order.quantity > 0 and len(asks) > 0 and order.price >= asks[0]:
@@ -164,6 +178,50 @@ def clear_order_book(trader_orders: dict[str, List[Order]], order_depth: dict[st
                     if bid_sizes[0] == 0:
                         bids.pop(0)
                         bid_sizes.pop(0)
+            m_trades = market_trades[symbol]
+            m_trades.sort(key=lambda x: x.price)
+
+            new_bid = bids[0] if len(bids) > 0 else best_bid
+            new_ask = asks[0] if len(asks) > 0 else best_ask
+            for t in m_trades:
+                # Try to match market trades with orders that are still in the book
+                if (t.price - best_bid) < (best_ask - t.price):
+                    # Trade closer to bid, assume person is trying to sell
+                    for order in buy_orders:
+                        if order.quantity == 0:
+                            continue
+                        if order.price <= best_bid:
+                            # Don't have queue priority
+                            break
+                        if order.price >= t.price:
+                            trade_sz = min(order.quantity, t.quantity)
+                            order.quantity -= trade_sz
+                            t.quantity -= trade_sz
+                            trades.append(Trade(symbol, order.price, trade_sz, "Submission", "", time))
+                        else:
+                            break
+                        if t.quantity <= 0:
+                            break
+                elif (t.price - best_bid) > (best_ask - t.price):
+                    # Close to ask, assume buyer
+                    for order in sell_orders:
+                        if order.quantity == 0:
+                            continue
+                        if order.price >= best_ask:
+                            # Don't have queue priority
+                            break
+                        if order.price <= t.price:
+                            # order quantity is negative because of backtest setup
+                            trade_sz = min(-order.quantity, t.quantity)
+                            order.quantity += trade_sz
+                            t.quantity -= trade_sz
+                            # negative cuz sell
+                            trades.append(Trade(symbol, order.price, -trade_sz, "", "Submission", time))
+                        else:
+                            # no more matches
+                            break
+                        if t.quantity <= 0:
+                            break
 
     return trades
                             
@@ -248,8 +306,8 @@ def create_log_file(states: dict[int, TradingState], day, trader: Trader):
                     f.write(f';;;;;;')
                 f.write(f'{statistics.median(asks_prices + bids_prices)};0.0\n')
 
-round = 2
-day = -1
+round = 3
+day = 1
 TRAINING_DATA_PREFIX = f"./hist_data/island-data-bottle-round-{round}"
 
 # Adjust accordingly the round and day to your needs

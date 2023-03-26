@@ -98,8 +98,9 @@ def simulate_alternative(round: int, day: int, trader, time_limit=999900):
         position = copy.copy(state.position)
         orders = trader.run(copy.copy(state))
         trades = clear_order_book(orders, state.order_depths, time, state.market_trades)
+        grouped_by_symbol = {}
+
         if len(trades) > 0:
-            grouped_by_symbol = {}
             for trade in trades:
                 if grouped_by_symbol.get(trade.symbol) == None:
                     grouped_by_symbol[trade.symbol] = []
@@ -111,10 +112,13 @@ def simulate_alternative(round: int, day: int, trader, time_limit=999900):
                 position[trade.symbol] = n_position
                 trade.quantity = abs(trade.quantity)
                 grouped_by_symbol[trade.symbol].append(trade)
-            if states.get(time + TIME_DELTA) != None:
-                states[time + TIME_DELTA].own_trades = grouped_by_symbol
+                
         if states.get(time + TIME_DELTA) != None:
             states[time + TIME_DELTA].position = position
+            if grouped_by_symbol:
+                states[time + TIME_DELTA].own_trades = grouped_by_symbol
+            else:
+                states[time + TIME_DELTA].own_trades = state.own_trades
     # create_log_file(states, day, trader)
 
 def cleanup_order_volumes(org_orders: List[Order]) -> List[Order]:
@@ -306,8 +310,8 @@ def create_log_file(states: dict[int, TradingState], day, trader: Trader):
                     f.write(f';;;;;;')
                 f.write(f'{statistics.median(asks_prices + bids_prices)};0.0\n')
 
-round = 3
-day = 1
+round = 4
+day = 3
 TRAINING_DATA_PREFIX = f"./hist_data/island-data-bottle-round-{round}"
 
 # Adjust accordingly the round and day to your needs

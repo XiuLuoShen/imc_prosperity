@@ -439,46 +439,17 @@ def alpha_trade_pair1(state: TradingState):
     return orders1, orders2
 
 past_observations = {
-    'DOLPHIN_SIGHTINGS': [],
+    'DOLPHINS': [],
 }
-
-# def alpha_trade_diving_gear(state: TradingState):
-#     order_depth: OrderDepth = state.order_depths['DIVING_GEAR']
-#     valid, bids, asks, bid_sizes, ask_sizes = get_bids_asks(order_depth)
-#     if not valid:
-#         return []
-    
-#     dolphins = state.observations.get('DOLPHIN_SIGHTINGS', None)
-#     if dolphins == None:
-#         return []
-    
-#     global past_observations
-#     past_dolphins = past_observations['DOLPHIN_SIGHTINGS']
-#     past_observations['DOLPHIN_SIGHTINGS'] = dolphins
-
-#     if past_dolphins == None:
-#         return []
-
-#     mid = (bids[0]+asks[0])/2
-#     # fair_price = mid*0.999152+dolphins*0.0275947
-#     signal = dolphins-past_dolphins
-
-#     curr_pos = state.position.get('DIVING_GEAR', 0)
-
-#     orders = []
-#     if signal > 0 and curr_pos+signal < POSITION_LIMITS['DIVING_GEAR']:
-#         size = 1
-#         orders.append(AlgoOrder('DIVING_GEAR', asks[0], 'BUY', size, note=f'X0_DG'))
-#     if signal < 0 and curr_pos+signal > -POSITION_LIMITS['DIVING_GEAR']:
-#         size = 1
-
-#         orders.append(AlgoOrder('DIVING_GEAR', bids[0], 'SELL', size, note=f'X0_DG'))
-
-#     return orders
 
 ichimoku_cloud_lines = {
     'past_dolphins': [],
 }
+
+time_count = 0
+
+def diving_gear_trade_size(lead):
+    return int(np.floor(lead*9))
 
 def alpha_trade_diving_gear(state: TradingState):
     order_depth: OrderDepth = state.order_depths['DIVING_GEAR']
@@ -486,49 +457,92 @@ def alpha_trade_diving_gear(state: TradingState):
     if not valid:
         return []
     
+    curr_pos = state.position.get('DIVING_GEAR', 0)
+    orders = []
+
     dolphins = state.observations.get('DOLPHIN_SIGHTINGS', None)
     if dolphins == None:
         return []
-    global past_observations
-    past_dolphins = past_observations['DOLPHIN_SIGHTINGS']
-    past_dolphins.append(dolphins)
-
-    win1 = 25
-    win2 = 75
-    win3 = 200
-
-    if len(past_dolphins) > win3:
-        past_dolphins.pop(0)
     
-    ichi_conversion = (max(past_dolphins[-win1:])+min(past_dolphins[-win1:]))/2
-    ichi_base = (max(past_dolphins[-win2:])+min(past_dolphins[-win2:]))/2
+    ignore_calc = False
+    win1 = 9
+    win2 = 26
+    win3 = 52
+
+    global past_observations
+    if not past_observations['DOLPHINS']:
+        past_observations['DOLPHINS'] = [dolphins]*win2
+        return []
+
+    if curr_pos != 0:
+        stop_loss = 100
+        mid = (bids[0]+asks[0])/2
+        last_trade_price = mid
+
+        prev_trades = state.own_trades.get('DIVING_GEAR', [])
+        if prev_trades:
+            prev_trades.sort(key=lambda x: x.timestamp, reverse=True)
+            last_trade_price = prev_trades[0].price
+        else:
+            prev_trades = state.market_trades.get('DIVING_GEAR', [])
+            if prev_trades:
+                prev_trades.sort(key=lambda x: x.timestamp, reverse=True)
+                last_trade_price = prev_trades[0].price
+
+        if (last_trade_price-mid)*np.sign(curr_pos) > stop_loss:
+            ignore_calc = True
+            # Cross the spread and go extra aggressive
+            if curr_pos > 0:
+                size = curr_pos
+                orders.append(AlgoOrder('DIVING_GEAR', bids[0]-1, 'SELL', size, note=f'X0_DG_STOP_LOSS'))
+            else:
+                size = abs(curr_pos)
+                orders.append(AlgoOrder('DIVING_GEAR', asks[0]+1, 'BUY', size, note=f'X0_DG_STOP_LOSS'))
+
+            # Flush the indicator
+            past_observations['DOLPHINS'] = past_observations['DOLPHINS'][-win2:]
+
+    if dolphins != past_observations['DOLPHINS'][-1]:
+        past_observations['DOLPHINS'].append(dolphins)
+        ignore_calc = True
+
+    if ignore_calc:
+        return orders
+
+    if len(past_observations['DOLPHINS']) > win3:
+        past_observations['DOLPHINS'].pop(0)
+    
+    ichi_conversion = (max(past_observations['DOLPHINS'][-win1:])+min(past_observations['DOLPHINS'][-win1:]))/2
+    ichi_base = (max(past_observations['DOLPHINS'][-win2:])+min(past_observations['DOLPHINS'][-win2:]))/2
     ichi_spanA = (ichi_base+ichi_conversion)/2
-    ichi_spanB = (max(past_dolphins)+min(past_dolphins))/2
+    ichi_spanB = (max(past_observations['DOLPHINS'])+min(past_observations['DOLPHINS']))/2
 
     lead = ichi_conversion-ichi_base
     cloud = ichi_spanA-ichi_spanB
     
-    curr_pos = state.position.get('DIVING_GEAR', 0)
-    orders = []
-
-    if lead > 2 and cloud >= 0:
+    if lead > 1 and cloud > 1 and lead >= cloud:
         # Enter
-        target_pos = np.ceil(lead*5)
+        target_pos = diving_gear_trade_size(np.abs(lead))
         size = min(target_pos-curr_pos, ask_sizes[0], POSITION_LIMITS['DIVING_GEAR']-curr_pos)
         if size > 0:
             orders.append(AlgoOrder('DIVING_GEAR', asks[0], 'BUY', size, note=f'X0_DG_ENTER'))
 
-    elif lead < -2 and cloud <= 0:
-        target_pos = np.ceil(lead*-5)
-        size = min(target_pos-curr_pos, bid_sizes[0], curr_pos+POSITION_LIMITS['DIVING_GEAR'])
+    elif lead < -1 and cloud < -1 and lead <= cloud:
+        target_pos = -diving_gear_trade_size(np.abs(lead))
+
+        size = min(curr_pos-target_pos, bid_sizes[0], curr_pos+POSITION_LIMITS['DIVING_GEAR'])
         if size > 0:
             orders.append(AlgoOrder('DIVING_GEAR', bids[0], 'SELL', size, note=f'X0_DG_ENTER'))
+        
+    if curr_pos > 0 and ((lead < 0 and cloud < 1) or cloud <= 0):
+    # if curr_pos > 0 and (cloud < 0):
 
-    elif curr_pos > 0 and cloud <= 0:
         # Close
         size = curr_pos
         orders.append(AlgoOrder('DIVING_GEAR', bids[0], 'SELL', size, note=f'X0_DG_EXIT'))
-    elif curr_pos < 0 and cloud >= 0:
+    # elif curr_pos < 0 and (cloud > 0):
+
+    elif curr_pos < 0 and ((lead > 0 and cloud > -1) or cloud >= 0):
         size = abs(curr_pos)
         orders.append(AlgoOrder('DIVING_GEAR', asks[0], 'BUY', size, note=f'X0_DG_EXIT'))
 
@@ -613,11 +627,11 @@ class Trader:
         result = {}
         print(f"State: {state.timestamp}")
 
-        for product in ['BANANAS','PEARLS']:
-            if product in state.order_depths.keys():
-                orders: list[Order] = alpha_trade(state, product)
-                if orders:
-                    result[product] = orders
+        # for product in ['BANANAS','PEARLS']:
+        #     if product in state.order_depths.keys():
+        #         orders: list[Order] = alpha_trade(state, product)
+        #         if orders:
+        #             result[product] = orders
 
         # if 'COCONUTS' in state.order_depths.keys() and 'PINA_COLADAS' in state.order_depths.keys():
         #     orders1, orders2 = alpha_trade_pair1(state)
@@ -626,15 +640,15 @@ class Trader:
         #     if orders2:
         #         result['PINA_COLADAS'] = orders2
         
-        # if 'DIVING_GEAR' in state.order_depths.keys():
-        #     orders = alpha_trade_diving_gear(state)
-        #     if orders:
-        #         result['DIVING_GEAR'] = orders
+        if 'DIVING_GEAR' in state.order_depths.keys():
+            orders = alpha_trade_diving_gear(state)
+            if orders:
+                result['DIVING_GEAR'] = orders
 
-        # if 'BERRIES' in state.order_depths.keys():
-        #     orders = alpha_trade_berries(state)
-        #     if orders:
-        #         result['BERRIES'] = orders
+        if 'BERRIES' in state.order_depths.keys():
+            orders = alpha_trade_berries(state)
+            if orders:
+                result['BERRIES'] = orders
         
         update_state_trades(state)
         print(f'\n{state.timestamp} {state.toJSON()}')

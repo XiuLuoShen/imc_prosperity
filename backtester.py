@@ -1,4 +1,4 @@
-from trader_r3 import Trader
+from trader_r4 import Trader
 
 from datamodel import *
 from typing import Any
@@ -11,6 +11,10 @@ import json
 
 import sys
 sys.stdout = open('./backtest_logs/backtest.log','wt')
+
+round = 4
+day = 3
+TRAINING_DATA_PREFIX = f"./hist_data/island-data-bottle-round-{round}"
 
 # Timesteps used in training files
 TIME_DELTA = 100
@@ -83,6 +87,10 @@ current_limits = {
     'PINA_COLADAS': 300,
     'DIVING_GEAR': 50,
     'BERRIES': 250,
+    "BAGUETTE": 150,
+    "DIP": 300,
+    "UKULELE": 70,
+    "PICNIC_BASKET": 70,
 }
 
 # Setting a high time_limit can be harder to visualize
@@ -310,9 +318,6 @@ def create_log_file(states: dict[int, TradingState], day, trader: Trader):
                     f.write(f';;;;;;')
                 f.write(f'{statistics.median(asks_prices + bids_prices)};0.0\n')
 
-round = 4
-day = 3
-TRAINING_DATA_PREFIX = f"./hist_data/island-data-bottle-round-{round}"
 
 # Adjust accordingly the round and day to your needs
 if __name__ == "__main__":

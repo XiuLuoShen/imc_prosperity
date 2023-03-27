@@ -1,6 +1,7 @@
-from typing import Dict, List
+from typing import Dict, List, Union
 from datamodel import OrderDepth, TradingState, Order
 import json
+import math
 
 import numpy as np
 
@@ -11,6 +12,10 @@ POSITION_LIMITS = {
     "PINA_COLADAS": 300,
     "DIVING_GEAR": 50,
     "BERRIES": 250,
+    "BAGUETTE": 150,
+    "DIP": 300,
+    "UKULELE": 70,
+    "PICNIC_BASKET": 70,
 }
 
 MAX_POST_SIZE = {
@@ -27,14 +32,14 @@ PAIRS = {
 }
 
 class AlgoOrder:
-    def __init__(self, symbol: str, price: int, side: str, quantity: int, note: str = 'None'):
+    def __init__(self, symbol: str, price: int, side: Union[int, str], quantity: int, note: str = 'None'):
         self.symbol = symbol
         self.price = price
-        if side == 'BUY':
+        if side == 'BUY' or side == 1:
             self.side = 1
-        elif side == 'SELL':
+        elif side == 'SELL' or side == -1:
             self.side = -1
-        self.quantity = quantity
+        self.quantity = int(quantity)
         self.note = note
 
     def create_market_order(self):
@@ -44,7 +49,7 @@ class AlgoOrder:
             qty = -1*self.quantity
         else:
             qty = self.quantity
-        return Order(self.symbol, self.price, int(qty))
+        return Order(self.symbol, self.price, qty)
 
 def update_state_trades(state):
     # Update timestamp of trades for logging
@@ -622,6 +627,112 @@ def alpha_trade_berries(state: TradingState):
     return orders
 
 
+BASKET_COMPONENTS = ['PICNIC_BASKET','DIP','BAGUETTE','UKULELE']
+BASKET_WEIGHTS = [-1, 4, 2, 1]
+
+def get_basket_signal(mids):
+    """
+    # TODO: UPDATE TO USE BIDS/ASKS
+    postive signal means that basket is underpriced compared to components
+    """
+    px_diff = -400
+    for i in range(4):
+        px_diff -= mids[i]*BASKET_WEIGHTS[i]
+    # Convert to z-score and flip to indicate if basket is under or overpriced
+    signal = -px_diff/100
+    # print(f"SIGNAL: {signal}")
+
+    return signal
+
+def get_basket_positions(px_signal, curr_pos):
+    """
+    Positive side means buy basket
+    Positions will be returned as absolute values
+    """
+    side = np.sign(px_signal)
+    abs_signal = abs(px_signal)
+    target_pos = curr_pos.copy()
+
+    # Maximum position at 2
+    entry = 1
+    exit = 0.25
+
+    curr_rel_pos = [0,0,0,0]
+    for i in range(4):
+        # Get absolute relative positions
+        curr_rel_pos[i] = -side*curr_pos[i]/BASKET_WEIGHTS[i]
+
+    if abs_signal > entry:
+        target_min = math.floor((abs_signal-entry)*35)
+        target_min = min(target_min, POSITION_LIMITS['PICNIC_BASKET'])
+        # Adjust for previous high signals
+        target_min = max(max(curr_rel_pos),target_min)
+        target_pos = [-side*round(target_min*BASKET_WEIGHTS[i]) for i in range(4)]
+
+        target_pos = [-side*target_min*BASKET_WEIGHTS[i] for i in range(4)]
+
+    if abs_signal < exit:
+        print("EXIT BASKET")
+        side = -np.sign(curr_pos[0])
+        target_pos = [0,0,0,0]
+
+    for i in range(4):
+        # Ensure that position is valid
+        target_pos[i] = min(abs(target_pos[i]), POSITION_LIMITS[BASKET_COMPONENTS[i]])*np.sign(target_pos[i])
+
+    return target_pos, side
+
+
+def get_basket_sym_trade(sym, curr_pos, target_pos, side, bids, asks, bid_szs, ask_szs):
+    """
+    Taker trade
+    """
+    order_qty = (target_pos - curr_pos)*side
+    if order_qty == 0:
+        return None
+
+    # Go aggressive into second level
+    if side == 1:
+        order_px = asks[0]+1
+    elif side == -1:
+        order_px = bids[0]-1
+    else:
+        order_px = (bids[0]+asks[0])/2 # mid px default
+        print("ERROR WITH ORDER PRICE")
+
+    return AlgoOrder(sym, order_px, side, order_qty, note='BASKET_TRADE')
+
+
+def alpha_trade_basket(state: TradingState, result_orders: Dict[str, List[Order]]):
+
+    # 0-BASKET, 1-DIP, 2-BAGUETTE, 3-UKULELE
+    bids, asks, bid_szs, ask_szs = [], [], [], []
+    curr_pos = []
+    for sym in BASKET_COMPONENTS:
+        valid, bidi, aski, bid_szi, ask_szi = get_bids_asks(state.order_depths[sym])
+        if not valid:
+            return
+        bids.append(bidi)
+        asks.append(aski)
+        bid_szs.append(bid_szi)
+        ask_szs.append(ask_szi)
+        curr_pos.append(state.position.get(sym, 0))
+        
+    mids = [0,0,0,0]
+    for i in range(4):
+        mids[i] = (bids[i][0] + asks[i][0])/2
+
+    px_signal = get_basket_signal(mids)
+    target_pos, side = get_basket_positions(px_signal, curr_pos)
+    
+    for i, sym in enumerate(BASKET_COMPONENTS):
+        trade = get_basket_sym_trade(sym, curr_pos[i], target_pos[i], -1*side*np.sign(BASKET_WEIGHTS[i]), bids[i], asks[i], bid_szs[i], ask_szs[i])
+        if trade:
+            result_orders[sym] = [trade]
+
+    return
+
+
 class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
         result = {}
@@ -649,6 +760,9 @@ class Trader:
             orders = alpha_trade_berries(state)
             if orders:
                 result['BERRIES'] = orders
+        
+        if 'PICNIC_BASKET' in state.order_depths.keys():
+            alpha_trade_basket(state, result)
         
         update_state_trades(state)
         print(f'\n{state.timestamp} {state.toJSON()}')

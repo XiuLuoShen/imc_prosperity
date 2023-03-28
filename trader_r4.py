@@ -41,6 +41,7 @@ Parameters to store:
 - Pair signal ema
 """
 hist_data = {
+    'last_time': 0
     # 'DOLPHINS': [],
     # 'BASKET_SIGNAL'
     # PAIR_SIGNAL
@@ -331,7 +332,7 @@ def get_pair_positions(px_signal, signal_ema, curr_pos):
     abs_signal = abs(px_signal)
     target_pos = curr_pos.copy()
     # Maximum position at 3
-    entry = 1.5
+    entry = 1.25
     exit = 0.25
 
     curr_rel_pos = [0,0]
@@ -343,9 +344,9 @@ def get_pair_positions(px_signal, signal_ema, curr_pos):
         # Enter whenever the signal falls lower than
         min_pos = max(curr_rel_pos)
         target_min = math.floor((abs_signal-entry)*150+5)
-        # if abs_signal > entry and side*(px_signal-signal_ema) < -0.15:
-        #     # Increase bet size if signal has began to trend down but still above entry
-        #     target_min = target_min + 30
+        if abs_signal > entry and side*(px_signal-signal_ema) < -0.1:
+        # #     # Increase bet size if signal has began to trend down but still above entry
+            target_min = max(min_pos + 100, target_min+100)
 
         target_min = min(target_min, POSITION_LIMITS['PINA_COLADAS'])
             # Adjust for previous high signals
@@ -359,6 +360,9 @@ def get_pair_positions(px_signal, signal_ema, curr_pos):
         elif px_signal < (exit+0.25) and curr_pos[0] == 0 and curr_pos[1] < 0:
             side = -1
             target_pos = [0,0]
+        # elif px_signal > exit and signal_ema < exit:
+        #     side = -1
+        #     target_pos = [0,0]
 
     elif curr_pos[0] < 0 or curr_pos[1] > 0:
         if px_signal > -exit and px_signal-signal_ema <= 0:
@@ -367,6 +371,9 @@ def get_pair_positions(px_signal, signal_ema, curr_pos):
         elif px_signal > -(exit+0.25) and curr_pos[0] == 0 and curr_pos[1] > 0:
             side = 1
             target_pos = [0,0]
+        # elif px_signal < -exit and signal_ema > -exit:
+        #     side = 1
+        #     target_pos = [0,0]
 
     for i in range(2):
         # Ensure that position is valid
@@ -425,13 +432,10 @@ def alpha_trade_pair(state: TradingState, result_orders: Dict[str, List[Order]])
     px_signal = -400*(mids[0]/mids[1]-15/8)
 
     global hist_data
-    signal_ema = hist_data.get('PAIR_SIGNAL_EMA', px_signal)
-    # signal_ema30 = hist_data.get('BASKET_SIGNAL_EMA30', px_signal)
+    signal_ema2 = hist_data.get('PAIR_SIGNAL_EMA2', px_signal)
+    hist_data['PAIR_SIGNAL_EMA2'] = ema_calculate(px_signal, signal_ema2, 1/50)
 
-    hist_data['PAIR_SIGNAL_EMA'] = ema_calculate(px_signal, signal_ema, 1/20)
-
-    target_pos, side = get_pair_positions(px_signal, signal_ema,  curr_pos)
-    # target_pos, side = get_basket_positions(px_signal,curr_pos)
+    target_pos, side = get_pair_positions(px_signal, signal_ema2,  curr_pos)
     
     for i, sym in enumerate(PAIR_SYMBOLS):
         trade = get_pair_sym_trade(sym, curr_pos[i], target_pos[i], -1*side*np.sign(PAIR_WEIGHTS[i]), bids[i], asks[i], bid_szs[i], ask_szs[i])
@@ -555,12 +559,12 @@ def alpha_trade_berries(state: TradingState):
     post_buy_levels = post_sell_levels = 3
     if px_time_offset > 0:
         fair_sell_px = fair_px + px_time_offset
-        post_buy_levels = 1
+        post_buy_levels = 3
         # Buy more aggressively
 
     if px_time_offset < 0:
         fair_buy_px = fair_px + px_time_offset
-        post_sell_levels = 1
+        post_sell_levels = 3
         # Sell more aggressively
 
     orders = passive_trades_general(state, product, orders, fair_buy_px, fair_sell_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell, post_buy_levels, post_sell_levels)
@@ -604,21 +608,21 @@ def get_basket_positions(px_signal, signal_ema, curr_pos):
         # Enter whenever the signal falls lower than
         min_pos = max(curr_rel_pos)
         target_min = math.floor((abs_signal-entry)*35+5)
-        if abs_signal > entry and side*(px_signal-signal_ema) < -0.15:
+        if abs_signal > entry-0.25 and side*(px_signal-signal_ema) < -0.05:
             # Increase bet size if signal has began to trend down but still above entry
-            target_min = target_min + 30
+            target_min = max(min_pos+25, target_min+25)
 
         target_min = min(target_min, POSITION_LIMITS['PICNIC_BASKET'])
             # Adjust for previous high signals
         min_pos = max(min_pos,target_min)
         target_pos = [-side*round(min_pos*BASKET_WEIGHTS[i]) for i in range(4)]
 
-    if curr_pos[0] > 0:
+    if curr_pos[0] > 0 or curr_pos[1] < 0 or curr_pos[2] < 0 or curr_pos[3] < 0:
         if px_signal < exit and px_signal-signal_ema >= 0:
-            side = -np.sign(curr_pos[0])
+            side = -1
             target_pos = [0,0,0,0]
 
-    elif curr_pos[0] < 0:
+    elif curr_pos[0] < 0 or curr_pos[1] > 0 or curr_pos[1] > 0 or curr_pos[3] > 0:
         if px_signal > -exit and px_signal-signal_ema <= 0:
             side = -np.sign(curr_pos[0])
             target_pos = [0,0,0,0]
@@ -638,11 +642,12 @@ def get_basket_sym_trade(sym, curr_pos, target_pos, side, bids, asks, bid_szs, a
     if order_qty == 0:
         return None
 
+    level = 0 if sym == 'PICNIC_BASKET' else 0
     # Go aggressive into second level
     if side == 1:
-        order_px = asks[0]+1
+        order_px = asks[0]+level
     elif side == -1:
-        order_px = bids[0]-1
+        order_px = bids[0]-level
     else:
         order_px = (bids[0]+asks[0])/2 # mid px default
         print("ERROR WITH ORDER PRICE")
@@ -688,7 +693,10 @@ def alpha_trade_basket(state: TradingState, result_orders: Dict[str, List[Order]
 class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
         result = {}
-        # print(f"State: {state.timestamp}")
+        global hist_data
+        # For debugging loss of state
+        print(f"Last Time: {hist_data.get('last_time',0)}")
+        hist_data['last_time'] = state.timestamp
 
         for product in ['BANANAS','PEARLS']:
             if product in state.order_depths.keys():

@@ -348,7 +348,7 @@ def alpha_trade_pair1(state: TradingState):
 
     mid1 = (bids1[0] + asks1[0])/2
     mid2 = (bids2[0] + asks2[0])/2
-    raw_signal = 100*(mid2/mid1-15/8)
+    raw_signal = 400*(mid2/mid1-15/8)
 
     global trader_state
     if state.timestamp - trader_state['PAIR1']['LAST_TIME'] > 300:

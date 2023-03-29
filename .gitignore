@@ -6,6 +6,7 @@
 /round2_logs/*
 /round3_logs/*
 /round4_logs/*
+/round5_logs/*
 /backtest_logs/*
 __pycache__/
 hist_data/__MACOSX/

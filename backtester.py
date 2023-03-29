@@ -1,4 +1,4 @@
-from trader_r4 import Trader
+from trader_r5_mm import Trader
 
 from datamodel import *
 from typing import Any
@@ -96,7 +96,7 @@ current_limits = {
 # Setting a high time_limit can be harder to visualize
 def simulate_alternative(round: int, day: int, trader, time_limit=999900):
     prices_path = f"{TRAINING_DATA_PREFIX}/prices_round_{round}_day_{day}.csv"
-    trades_path = f"{TRAINING_DATA_PREFIX}/trades_round_{round}_day_{day}_nn.csv"
+    trades_path = f"{TRAINING_DATA_PREFIX}/trades_round_{round}_day_{day}_wn.csv"
     df_prices = pd.read_csv(prices_path, sep=';')
     df_trades = pd.read_csv(trades_path, sep=';')
     states = process_prices(df_prices, time_limit)
@@ -174,7 +174,7 @@ def clear_order_book(trader_orders: dict[str, List[Order]], order_depth: dict[st
             for order in buy_orders:
                 while order.quantity > 0 and len(asks) > 0 and order.price >= asks[0]:
                     trade_sz = min(ask_sizes[0], order.quantity)
-                    trades.append(Trade(symbol, asks[0], trade_sz, "Submission", "", time))
+                    trades.append(Trade(symbol, asks[0], trade_sz, "Submission", "Unknown", time))
                     order.quantity -= trade_sz
                     ask_sizes[0] -= trade_sz
                     if ask_sizes[0] == 0:
@@ -184,7 +184,7 @@ def clear_order_book(trader_orders: dict[str, List[Order]], order_depth: dict[st
             for order in sell_orders:
                 while order.quantity < 0 and len(bids) > 0 and order.price <= bids[0]:
                     trade_sz = min(bid_sizes[0], abs(order.quantity))
-                    trades.append(Trade(symbol, bids[0], -trade_sz, "", "Submission", time))
+                    trades.append(Trade(symbol, bids[0], -trade_sz, "Unknown", "Submission", time))
                     order.quantity += trade_sz # position inc
                     bid_sizes[0] -= trade_sz
                     if bid_sizes[0] == 0:
@@ -209,7 +209,7 @@ def clear_order_book(trader_orders: dict[str, List[Order]], order_depth: dict[st
                             trade_sz = min(order.quantity, t.quantity)
                             order.quantity -= trade_sz
                             t.quantity -= trade_sz
-                            trades.append(Trade(symbol, order.price, trade_sz, "Submission", "", time))
+                            trades.append(Trade(symbol, order.price, trade_sz, "Submission", t.seller, time))
                         else:
                             break
                         if t.quantity <= 0:
@@ -228,7 +228,7 @@ def clear_order_book(trader_orders: dict[str, List[Order]], order_depth: dict[st
                             order.quantity += trade_sz
                             t.quantity -= trade_sz
                             # negative cuz sell
-                            trades.append(Trade(symbol, order.price, -trade_sz, "", "Submission", time))
+                            trades.append(Trade(symbol, order.price, -trade_sz, t.buyer, "Submission", time))
                         else:
                             # no more matches
                             break

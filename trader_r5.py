@@ -694,9 +694,11 @@ class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
         result = {}
         global hist_data
+        print(f"State: {state.timestamp}")
+
         # For debugging loss of state
-        print(f"T={hist_data.get('last_time',0)}")
-        hist_data['last_time'] = state.timestamp
+        # print(f"T={hist_data.get('last_time',0)}")
+        # hist_data['last_time'] = state.timestamp
 
         for product in ['BANANAS','PEARLS']:
             if product in state.order_depths.keys():

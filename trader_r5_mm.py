@@ -21,14 +21,30 @@ POSITION_LIMITS = {
 MAX_POST_SIZE = {
     "BANANAS": 20,
     "PEARLS": 12,
-    "COCONUTS": 39,
-    "PINA_COLADAS": 19,
+    "COCONUTS": 79,
+    "PINA_COLADAS": 39,
     "BERRIES": 20,
+    "DIVING_GEAR": 3,
+    "BAGUETTE": 50,
+    "DIP": 100,
+    "UKULELE": 30,
+    "PICNIC_BASKET": 9,
 }
 
-PAIRS = {
-    'COCONUTS': 'PINA_COLADAS',
-    'PINA_COLADAS': 'COCONUTS'
+POST_LEVELS = {
+    "PEARLS": 4,
+    "BANANAS": 3,
+    "COCONUTS": 1,
+    "PINA_COLADAS": 1,
+    "DIVING_GEAR": 2,
+}
+
+POSITIONS_OFFSET = {
+    "PEARLS": 0.025,
+    "BANANAS": 0.05,
+    "PINA_COLADAS": 0.005,
+    "COCONUTS": 0.00266666,
+    "DIVING_GEAR": 0.075,
 }
 
 """
@@ -54,9 +70,9 @@ BASKET_COMPONENTS = ['PICNIC_BASKET','DIP','BAGUETTE','UKULELE']
 BASKET_WEIGHTS = [-1, 4, 2, 1]
 
 class AlgoOrder:
-    def __init__(self, symbol: str, price: int, side: Union[int, str], quantity: int, note: str = 'None'):
+    def __init__(self, symbol: str, price, side: Union[int, str], quantity, note: str = 'None'):
         self.symbol = symbol
-        self.price = price
+        self.price = int(price)
         if side == 'BUY' or side == 1:
             self.side = 1
         elif side == 'SELL' or side == -1:
@@ -87,7 +103,7 @@ def log_orders(timestamp, orders):
 
     return
 
-def compute_fair_price(bids, bid_sizes, asks, ask_sizes) -> float:
+def compute_book_alpha(bids, bid_sizes, asks, ask_sizes) -> float:
     """ Compute size weighted price using orders in the state
     """
     total_notional = 0
@@ -102,13 +118,6 @@ def compute_fair_price(bids, bid_sizes, asks, ask_sizes) -> float:
 
     return total_notional/total_size
 
-def offset_bananas(fair_px: float, curr_pos: int):
-    # return fair_px-0.075*curr_pos
-    if np.abs(curr_pos) <= 5:
-        return fair_px
-    else:
-        return fair_px-0.075*(curr_pos-np.sign(curr_pos)*5)
-    
 def offset_berries(fair_px: float, curr_pos: int, timestamp: int):
 
     if timestamp >= 3500 and timestamp <= 7500:
@@ -116,148 +125,8 @@ def offset_berries(fair_px: float, curr_pos: int, timestamp: int):
     else:
         return fair_px-0.008*curr_pos
 
-def offset_pearls(fair_px: float, curr_pos: int):
-    return fair_px-0.025*curr_pos
-
-def offset_coconuts(fair_px: float, curr_pos: int, pina_pos: int):
-    return fair_px-curr_pos*0.005-pina_pos*0.005
-    
-def offset_pina_coladas(fair_px: float, curr_pos: int, coco_pos: int):
-    return fair_px-curr_pos*0.01-coco_pos*0.01/4
-
-THEO_OFFSET_FUNC = {
-    "PEARLS": offset_pearls,
-    "BANANAS": offset_bananas,
-    "COCONUTS": offset_coconuts,
-    "PINA_COLADAS": offset_pina_coladas,
-    "BERRIES": offset_berries,
-    # "DIVING_GEAR": 
-}
-
 def ema_calculate(new_entry, prev_ema, alpha):
     return new_entry*alpha+prev_ema*(1-alpha)
-
-def offset_fair_price(product, *args):
-    return THEO_OFFSET_FUNC[product](*args)
-
-
-def passive_trades_bananas(state: TradingState, product, orders: List[Order], fair_buy_px, fair_sell_px, curr_pos: int, long_vol_avail: int, short_vol_avail: int, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell):
-    best_bid = bids[active_sell] if len(bids) > active_sell else bids[0]-1
-    best_bid_vol = bid_sizes[active_sell] if len(bids) > active_sell else long_vol_avail
-
-    best_ask = asks[active_buy] if len(asks) > active_buy else asks[0]+1
-    best_ask_vol = ask_sizes[active_buy] if len(asks) > active_buy else short_vol_avail
-
-    max_post_sz = MAX_POST_SIZE['BANANAS']
-
-    if long_vol_avail > 0:
-        post_px = int(np.floor(fair_buy_px))
-        posted = False
-        for dx in [4, 3, 2, 1]:
-            if post_px - dx > best_bid:
-                post_sz = min(long_vol_avail, max_post_sz)
-                long_vol_avail -= post_sz
-                orders.append(AlgoOrder(product, post_px-dx, 'BUY', post_sz, note=f'P{dx}'))
-                posted = True
-                break
-        if not posted and curr_pos <= 18:
-            post_sz = min(long_vol_avail, max_post_sz)
-            orders.append(AlgoOrder(product, post_px, 'BUY', post_sz, note=f'P0'))
-    # Sell Orders
-    if short_vol_avail > 0:
-        post_px = int(np.ceil(fair_sell_px))
-        posted = False
-        for dx in [4, 3, 2, 1]:
-            if post_px + dx < best_ask:
-                post_sz = min(short_vol_avail, max_post_sz)
-                short_vol_avail -= post_sz
-                orders.append(AlgoOrder(product, post_px+dx, 'SELL', post_sz, note=f'P{dx}'))
-                posted = True
-                break
-        if not posted and curr_pos >= -18:
-            post_sz = min(short_vol_avail, max_post_sz)
-            orders.append(AlgoOrder(product, post_px, 'SELL', post_sz, note=f'P0'))
-
-    return
-
-def passive_trades_pearls(state: TradingState, product, orders: List[Order], fair_buy_px, fair_sell_px, curr_pos: int, long_vol_avail: int, short_vol_avail: int, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell):
-    # Adjust top of quote if we take it out
-    best_bid = bids[active_sell] if len(bids) > active_sell else bids[0]-1
-    best_bid_vol = bid_sizes[active_sell] if len(bids) > active_sell else long_vol_avail
-
-    best_ask = asks[active_buy] if len(asks) > active_buy else asks[0]+1
-    best_ask_vol = ask_sizes[active_buy] if len(asks) > active_buy else short_vol_avail
-
-    max_post_sz = MAX_POST_SIZE['PEARLS']
-    if long_vol_avail > 0:
-        post_px = int(np.floor(fair_buy_px))
-        posted = False
-        for dx in [4, 3, 2, 1]:
-            if post_px - dx > best_bid:
-                post_sz = min(long_vol_avail, max_post_sz)
-                long_vol_avail -= post_sz
-                orders.append(AlgoOrder(product, post_px-dx, 'BUY', post_sz, note=f'P{dx}'))
-                posted = True
-                break
-        if not posted and curr_pos <= 18:
-            post_sz = min(long_vol_avail, max_post_sz)
-            orders.append(AlgoOrder(product, post_px, 'BUY', post_sz, note=f'P0'))
-    # Sell Orders
-    if short_vol_avail > 0:
-        post_px = int(np.ceil(fair_sell_px))
-        posted = False
-        for dx in [4, 3, 2, 1]:
-            if post_px + dx < best_ask:
-                post_sz = min(short_vol_avail, max_post_sz)
-                short_vol_avail -= post_sz
-                orders.append(AlgoOrder(product, post_px+dx, 'SELL', post_sz, note=f'P{dx}'))
-                posted = True
-                break
-        if not posted and curr_pos >= -18:
-            post_sz = min(short_vol_avail, max_post_sz)
-            orders.append(AlgoOrder(product, post_px, 'SELL', post_sz, note=f'P0'))
-
-    return
-
-
-def passive_trades_general(state: TradingState, product, orders: List[Order], fair_buy_px, fair_sell_px, curr_pos: int, long_vol_avail: int, short_vol_avail: int, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell, post_buy_levels, post_sell_levels):
-    # Adjust top of quote if we take it out
-    best_bid = bids[active_sell] if len(bids) > active_sell else bids[0]-1
-    best_bid_vol = bid_sizes[active_sell] if len(bids) > active_sell else long_vol_avail
-
-    best_ask = asks[active_buy] if len(asks) > active_buy else asks[0]+1
-    best_ask_vol = ask_sizes[active_buy] if len(asks) > active_buy else short_vol_avail
-
-    max_post_sz = MAX_POST_SIZE[product]
-    if long_vol_avail > 0:
-        post_px = int(np.floor(fair_buy_px))
-        posted = False
-        for dx in range(post_buy_levels, 0, -1):
-            if post_px - dx > best_bid:
-                post_sz = min(long_vol_avail, max_post_sz)
-                long_vol_avail -= post_sz
-                orders.append(AlgoOrder(product, post_px-dx, 'BUY', post_sz, note=f'P{dx}'))
-                posted = True
-                break
-        if not posted:
-            post_sz = min(long_vol_avail, max_post_sz)
-            orders.append(AlgoOrder(product, post_px, 'BUY', post_sz, note=f'P0'))
-    # Sell Orders
-    if short_vol_avail > 0:
-        post_px = int(np.ceil(fair_sell_px))
-        posted = False
-        for dx in range(post_sell_levels, 0, -1):
-            if post_px + dx < best_ask:
-                post_sz = min(short_vol_avail, max_post_sz)
-                short_vol_avail -= post_sz
-                orders.append(AlgoOrder(product, post_px+dx, 'SELL', post_sz, note=f'P{dx}'))
-                posted = True
-                break
-        if not posted:
-            post_sz = min(short_vol_avail, max_post_sz)
-            orders.append(AlgoOrder(product, post_px, 'SELL', post_sz, note=f'P0'))
-
-    return orders
 
 def get_bids_asks(order_depth):
     if len(order_depth.buy_orders) != 0:
@@ -272,7 +141,58 @@ def get_bids_asks(order_depth):
         return False, [], [], [], []
     return True, bids, asks, bid_sizes, ask_sizes
 
-def alpha_trade(state: TradingState, product):
+def get_long_short_qty(sym, curr_pos):
+    long_vol = POSITION_LIMITS[sym]-curr_pos
+    short_vol = abs(-POSITION_LIMITS[sym]-curr_pos)
+    return long_vol, short_vol
+
+def mm_trades(product, orders: List[Order], fair_buy_px, fair_sell_px, curr_pos: int, long_vol_avail: int, short_vol_avail: int, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell, post_buy_levels, post_sell_levels):
+    """
+    Passive trades
+    """
+    # Adjust top of quote if we take it out
+    best_bid = bids[active_sell] if len(bids) > active_sell else bids[0]-1
+    best_ask = asks[active_buy] if len(asks) > active_buy else asks[0]+1
+    max_post_sz = MAX_POST_SIZE[product]
+
+    if long_vol_avail > 0:
+        post_px = int(np.floor(fair_buy_px))
+        posted = False
+        for dx in range(post_buy_levels, 0, -1):
+            if post_px - dx > best_bid:
+                post_sz = min(long_vol_avail, max_post_sz)
+                long_vol_avail -= post_sz
+                orders.append(AlgoOrder(product, post_px-dx, 'BUY', post_sz, note=f'P{dx}'))
+                posted = True
+                break
+        if not posted and post_px >= best_bid:
+            post_sz = min(long_vol_avail, max_post_sz)
+            orders.append(AlgoOrder(product, post_px, 'BUY', post_sz, note=f'P0'))
+    # Sell Orders
+    if short_vol_avail > 0:
+        post_px = int(np.ceil(fair_sell_px))
+        posted = False
+        for dx in range(post_sell_levels, 0, -1):
+            if post_px + dx < best_ask:
+                post_sz = min(short_vol_avail, max_post_sz)
+                short_vol_avail -= post_sz
+                orders.append(AlgoOrder(product, post_px+dx, 'SELL', post_sz, note=f'P{dx}'))
+                posted = True
+                break
+        if not posted and post_px <= best_ask:
+            post_sz = min(short_vol_avail, max_post_sz)
+            orders.append(AlgoOrder(product, post_px, 'SELL', post_sz, note=f'P0'))
+
+    return orders
+
+def get_max_active_quantity(fair_px, trade_px, side, trade_capacity, qty_offset):
+    # Compute maximum volume we are willing to get done at this price
+    trade_sz = np.round(side*(fair_px-trade_px)/qty_offset)
+    trade_sz = min(trade_sz, trade_capacity)
+
+    return trade_sz
+
+def alpha_trade_book(state: TradingState, product):
     order_depth: OrderDepth = state.order_depths[product]
     valid, bids, asks, bid_sizes, ask_sizes = get_bids_asks(order_depth)
     if not valid:
@@ -281,8 +201,8 @@ def alpha_trade(state: TradingState, product):
     orders = []
 
     curr_pos = state.position.get(product, 0)
-    fair_px = compute_fair_price(bids, bid_sizes, asks, ask_sizes)
-    fair_px = offset_fair_price(product, fair_px, curr_pos)
+    fair_px = compute_book_alpha(bids, bid_sizes, asks, ask_sizes)
+    fair_px -= curr_pos*POSITIONS_OFFSET[product]
     fair_buy_px = fair_sell_px = fair_px
 
     # Positive and negative
@@ -293,126 +213,31 @@ def alpha_trade(state: TradingState, product):
     spread = asks[0]-bids[0]
     active_buy, active_sell = 0, 0
 
-    i = 0
-    if asks[i] < fair_buy_px and long_vol_avail:
-        take_size = min(long_vol_avail, ask_sizes[i])
+    if asks[0] < fair_buy_px and long_vol_avail:
+        take_size = min(long_vol_avail, ask_sizes[0])
         long_vol_avail -= take_size
-        ask_sizes[i] -= take_size
+        ask_sizes[0] -= take_size
         curr_pos += take_size # Adjust position for posting
-        active_buy = i+1   
-        orders.append(AlgoOrder(product, asks[i], 'BUY', take_size, note=f'X_{i}'))
-
-    if bids[i] > fair_sell_px and short_vol_avail:
-        take_size = min(short_vol_avail, bid_sizes[i])
+        active_buy = 1
+        orders.append(AlgoOrder(product, asks[0], 'BUY', take_size, note=f'X0'))
+    if bids[0] > fair_sell_px and short_vol_avail:
+        take_size = min(short_vol_avail, bid_sizes[0])
         short_vol_avail -= take_size
-        bid_sizes[i] -= take_size
+        bid_sizes[0] -= take_size
         curr_pos -= take_size # Adjust position for posting
-        active_sell = i+1
-        orders.append(AlgoOrder(product, bids[i], 'SELL', take_size, note=f'X_{i}'))
+        active_sell = 1
+        orders.append(AlgoOrder(product, bids[0], 'SELL', take_size, note=f'X0'))
     
-    fair_px = compute_fair_price(bids, bid_sizes, asks, ask_sizes)
-    fair_px = offset_fair_price(product, fair_px, curr_pos)
+    fair_px = compute_book_alpha(bids, bid_sizes, asks, ask_sizes)
+    fair_px -= curr_pos*POSITIONS_OFFSET[product]
     fair_buy_px = fair_sell_px = fair_px
-    # fair_buy_px = fair_px - 0.25
-    # fair_sell_px = fair_px + 0.25
 
-    if product == 'BANANAS':
-        passive_trades_bananas(state, product, orders, fair_buy_px, fair_sell_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell)
-    elif product == 'PEARLS':
-        passive_trades_pearls(state, product, orders, fair_buy_px, fair_sell_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell)
+    mm_trades(product, orders, fair_buy_px, fair_sell_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell, POST_LEVELS[product], POST_LEVELS[product])
 
     return orders
 
-def get_pair_positions(px_signal, signal_ema, curr_pos):
-    """
-    Positive side means buy basket
-    Positions will be returned as absolute values
-    """
-    side = np.sign(px_signal)
-    abs_signal = abs(px_signal)
-    target_pos = curr_pos.copy()
-    # Maximum position at 3
-    entry = 1.25
-    exit = 0.25
-
-    curr_rel_pos = [0,0]
-    for i in range(2):
-        # Get absolute relative positions
-        curr_rel_pos[i] = -side*curr_pos[i]/PAIR_WEIGHTS[i]
-
-    if abs_signal > entry or max(curr_rel_pos) > 0:
-        # Enter whenever the signal falls lower than
-        min_pos = max(curr_rel_pos)
-        target_min = math.floor((abs_signal-entry)*150+5)
-        if abs_signal > entry and side*(px_signal-signal_ema) < -0.1:
-        # #     # Increase bet size if signal has began to trend down but still above entry
-            target_min = max(min_pos + 100, target_min+100)
-
-        target_min = min(target_min, POSITION_LIMITS['PINA_COLADAS'])
-            # Adjust for previous high signals
-        min_pos = max(min_pos,target_min)
-        target_pos = [-side*round(min_pos*PAIR_WEIGHTS[i]) for i in range(2)]
-
-    if curr_pos[0] > 0 or curr_pos[1] < 0:
-        if px_signal < exit and px_signal-signal_ema >= 0:
-            side = -np.sign(curr_pos[0])
-            target_pos = [0,0]
-        elif px_signal < (exit+0.25) and curr_pos[0] == 0 and curr_pos[1] < 0:
-            side = -1
-            target_pos = [0,0]
-        # elif px_signal > exit and signal_ema < exit:
-        #     side = -1
-        #     target_pos = [0,0]
-
-    elif curr_pos[0] < 0 or curr_pos[1] > 0:
-        if px_signal > -exit and px_signal-signal_ema <= 0:
-            side = -np.sign(curr_pos[0])
-            target_pos = [0,0]
-        elif px_signal > -(exit+0.25) and curr_pos[0] == 0 and curr_pos[1] > 0:
-            side = 1
-            target_pos = [0,0]
-        # elif px_signal < -exit and signal_ema > -exit:
-        #     side = 1
-        #     target_pos = [0,0]
-
-    for i in range(2):
-        # Ensure that position is valid
-        target_pos[i] = min(abs(target_pos[i]), POSITION_LIMITS[PAIR_SYMBOLS[i]])*np.sign(target_pos[i])
-
-    return target_pos, side
-
-def get_pair_sym_trade(sym, curr_pos, target_pos, side, bids, asks, bid_szs, ask_szs):
-    """
-    Taker trade
-    """
-    order_qty = (target_pos - curr_pos)*side
-    if order_qty == 0:
-        return None
-
-    note = 'PAIR_TRADE'
-    # Cross into first level
-    if side == 1:
-        # if asks[0] - bids[0] > 1:
-        #     order_px = asks[0]-1
-        #     note += "_PASSIVE"
-        # else:
-        order_px = asks[0]
-    elif side == -1:
-        # if asks[0] - bids[0] > 1:
-        #     order_px = bids[0]+1
-        #     note += "_PASSIVE"
-        # else:
-        order_px = bids[0]
-    else:
-        order_px = (bids[0]+asks[0])/2 # mid px default
-        print("ERROR WITH ORDER PRICE")
-
-    order_qty = min(order_qty, MAX_POST_SIZE[sym])
-
-    return AlgoOrder(sym, order_px, side, order_qty, note=note)
 
 def alpha_trade_pair(state: TradingState, result_orders: Dict[str, List[Order]]):
-
     # 0-PINA COLADAS, 1-COCONUTS
     bids, asks, bid_szs, ask_szs = [], [], [], []
     curr_pos = []
@@ -429,31 +254,71 @@ def alpha_trade_pair(state: TradingState, result_orders: Dict[str, List[Order]])
     mids = [0,0]
     for i in range(2):
         mids[i] = (bids[i][0] + asks[i][0])/2
-    px_signal = -400*(mids[0]/mids[1]-15/8)
+    px_signal = 400*(mids[0]/mids[1]-15/8)
+    px_signal = np.clip(px_signal, -2.25, 2.25)
 
-    global hist_data
-    signal_ema2 = hist_data.get('PAIR_SIGNAL_EMA2', px_signal)
-    hist_data['PAIR_SIGNAL_EMA2'] = ema_calculate(px_signal, signal_ema2, 1/50)
-
-    target_pos, side = get_pair_positions(px_signal, signal_ema2,  curr_pos)
-    
     for i, sym in enumerate(PAIR_SYMBOLS):
-        trade = get_pair_sym_trade(sym, curr_pos[i], target_pos[i], -1*side*np.sign(PAIR_WEIGHTS[i]), bids[i], asks[i], bid_szs[i], ask_szs[i])
-        if trade:
-            result_orders[sym] = [trade]
+        orders = pair_mm_trade(state, sym, bids[i], asks[i], bid_szs[i], ask_szs[i], px_signal*np.sign(PAIR_WEIGHTS[i]))
+        if orders:
+            result_orders[sym] = orders
 
     return
 
+def pair_mm_trade(state, sym,  bids, asks, bid_sz, ask_sz, signal):
+    curr_pos = state.position.get(sym, 0)
+    long_vol_avail, short_vol_avail = get_long_short_qty(sym, curr_pos)
+
+    mid = (bids[0] + asks[0])/2
+    fair_px = mid + signal - POSITIONS_OFFSET[sym]*curr_pos
+    fair_buy_px = fair_px - 0.1
+    fair_sell_px = fair_px + 0.1
+
+    if short_vol_avail == 0 and (asks[0]-bids[0]) >= 2:
+        fair_sell_px = asks[0] - 1
+        fair_buy_px = asks[0] - 2
+    elif long_vol_avail == 0 and (asks[0]-bids[0]) >= 2:
+        fair_buy_px = bids[0] + 1
+        fair_sell_px = bids[0] + 2
+
+    orders = []
+    active_buy = active_sell = 0
+    if asks[0] < fair_buy_px and long_vol_avail:
+        take_size = get_max_active_quantity(fair_px, asks[0], 1, long_vol_avail, POSITIONS_OFFSET[sym])
+        if take_size > 0:
+            long_vol_avail -= take_size
+            ask_sz[0] -= take_size
+            curr_pos += take_size # Adjust position for posting
+            active_buy = 1
+            orders.append(AlgoOrder(sym, asks[0], 'BUY', take_size, note=f'X0'))
+    elif bids[0] > fair_sell_px and short_vol_avail:
+        take_size = get_max_active_quantity(fair_px, bids[0], -1, short_vol_avail, POSITIONS_OFFSET[sym])
+
+        if take_size > 0:
+            short_vol_avail -= take_size
+            bid_sz[0] -= take_size
+            curr_pos -= take_size # Adjust position for posting
+            active_sell = 1
+            orders.append(AlgoOrder(sym, bids[0], 'SELL', take_size, note=f'X0'))
+
+    fair_px = mid + signal - POSITIONS_OFFSET[sym]*curr_pos
+    fair_buy_px = fair_sell_px = fair_px
+
+    mm_trades(sym, orders, fair_buy_px, fair_sell_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sz, ask_sz, active_buy, active_sell, POST_LEVELS[sym], POST_LEVELS[sym])
+    
+    return orders
+
+
 def alpha_trade_diving_gear(state: TradingState):
-    order_depth: OrderDepth = state.order_depths['DIVING_GEAR']
-    valid, bids, asks, bid_sizes, ask_sizes = get_bids_asks(order_depth)
+    sym = 'DIVING_GEAR'
+    order_depth: OrderDepth = state.order_depths[sym]
+    valid, bids, asks, bid_sz, ask_sz = get_bids_asks(order_depth)
     if not valid:
         return []
     
     dolphins = state.observations.get('DOLPHIN_SIGHTINGS', None)
     if dolphins == None:
         return []
-    curr_pos = state.position.get('DIVING_GEAR', 0)
+    curr_pos = state.position.get(sym, 0)
     orders = []
     mid = (bids[0] + asks[0])/2
     
@@ -464,40 +329,67 @@ def alpha_trade_diving_gear(state: TradingState):
 
     dolphin_signal = dolphins - prev_dolphins
     target_pos = curr_pos
+    px_offset_dolphins = 0
     # Desired position if trading
     if abs(dolphin_signal) > 5:
         side = np.sign(dolphin_signal)
-        target_pos = POSITION_LIMITS['DIVING_GEAR']*side
         hist_data['trading_dolphins'] = side
+        hist_data['trading_momentum'] = True
+        px_offset_dolphins = dolphin_signal
     elif hist_data.get('trading_dolphins', 0) != 0:
+        px_offset_dolphins = 5*np.sign(curr_pos)
         if (dolphins-dolphins_ema)*hist_data.get('trading_dolphins',0) <= 0:
             # dolphin momentum stopped
             hist_data['trading_dolphins'] = 0
         else:
-            target_pos = POSITION_LIMITS['DIVING_GEAR']*hist_data.get('trading_dolphins',0)
-
-    if curr_pos != 0:
+            px_offset_dolphins = 5*hist_data.get('trading_dolphins',0)
+    elif curr_pos != 0 and hist_data.get('trading_momentum', False):
+        px_offset_dolphins = 5*np.sign(curr_pos)
         if hist_data.get('trading_dolphins', 0) == 0:
             # Exit after price and dolphin trend has stopped
             if curr_pos > 0 and mid <= px_ema:
-                target_pos = 0
+                hist_data['trading_momentum'] = False
             elif curr_pos < 0 and mid >= px_ema:
-                target_pos = 0
-    
-    # Create trade
-    if target_pos != curr_pos:
-        if target_pos > curr_pos:
-            new_order = AlgoOrder('DIVING_GEAR', asks[0]+1,'BUY', target_pos-curr_pos,note=f"DG_ORDER_{hist_data.get('trading_dolphins', 0)}")
+                hist_data['trading_momentum'] = False
+
+    long_vol_avail, short_vol_avail = get_long_short_qty(sym, curr_pos)
+    fair_px = mid + px_offset_dolphins - POSITIONS_OFFSET[sym]*curr_pos
+
+    active_buy = active_sell = 0
+    for i in range(min(2, len(asks))):
+        if asks[i] < fair_px and long_vol_avail:
+            take_size = get_max_active_quantity(fair_px, asks[i], 1, long_vol_avail, POSITIONS_OFFSET[sym])
+            if take_size > 0:
+                long_vol_avail -= take_size
+                ask_sz[i] -= take_size
+                curr_pos += take_size # Adjust position for posting
+                active_buy = i+1
+                orders.append(AlgoOrder(sym, asks[i], 'BUY', take_size, note=f'X{i}'))
         else:
-            new_order = AlgoOrder('DIVING_GEAR', bids[0]-1,'SELL', curr_pos-target_pos,note=f"DG_ORDER_{hist_data.get('trading_dolphins', 0)}")
-        orders.append(new_order)
-                
+            break
+    for i in range(min(2, len(bids))):
+        if bids[i] > fair_px and short_vol_avail:
+            take_size = get_max_active_quantity(fair_px, bids[i], -1, short_vol_avail, POSITIONS_OFFSET[sym])
+            if take_size > 0:
+                short_vol_avail -= take_size
+                bid_sz[0] -= take_size
+                curr_pos -= take_size # Adjust position for posting
+                active_sell = i+1
+                orders.append(AlgoOrder(sym, bids[i], 'SELL', take_size, note=f'X{i}'))
+        else:
+            break
+
+    if px_offset_dolphins == 0:
+        mm_trades(sym, orders, fair_px, fair_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sz, ask_sz, active_buy, active_sell, POST_LEVELS[sym], POST_LEVELS[sym])
+    
     hist_data['DG_PX_EMA'] = ema_calculate(mid, px_ema, 1/80)
     if dolphins != prev_dolphins:
         hist_data['prev_dolphins'] = dolphins
         hist_data['dolphins_ema'] = ema_calculate(dolphins, dolphins_ema, 1/20)
 
     return orders
+
+
 
 
 def berries_time_offset(time):
@@ -524,8 +416,8 @@ def alpha_trade_berries(state: TradingState):
     time = state.timestamp / 100
 
     curr_pos = state.position.get(product, 0)
-    fair_px = compute_fair_price(bids, bid_sizes, asks, ask_sizes)
-    fair_px = offset_fair_price(product, fair_px, curr_pos, time)
+    fair_px = compute_book_alpha(bids, bid_sizes, asks, ask_sizes)
+    # fair_px = offset_fair_price(product, fair_px, curr_pos, time)
 
     #TODO: Adjust fair price by time of day
     px_time_offset = berries_time_offset(time)
@@ -553,8 +445,8 @@ def alpha_trade_berries(state: TradingState):
             active_sell = 1
             orders.append(AlgoOrder(product, bids[0], 'SELL', take_size, note=f'X_0'))
 
-    fair_px = compute_fair_price(bids, bid_sizes, asks, ask_sizes)
-    fair_px = offset_fair_price(product, fair_px, curr_pos, time)
+    fair_px = compute_book_alpha()(bids, bid_sizes, asks, ask_sizes)
+    # fair_px += offset_fair_price(product, fair_px, curr_pos, time)
 
     post_buy_levels = post_sell_levels = 3
     if px_time_offset > 0:
@@ -567,7 +459,7 @@ def alpha_trade_berries(state: TradingState):
         post_sell_levels = 3
         # Sell more aggressively
 
-    orders = passive_trades_general(state, product, orders, fair_buy_px, fair_sell_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell, post_buy_levels, post_sell_levels)
+    orders = mm_trades(state, product, orders, fair_buy_px, fair_sell_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sizes, ask_sizes, active_buy, active_sell, post_buy_levels, post_sell_levels)
 
     return orders
 
@@ -694,31 +586,33 @@ class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
         result = {}
         global hist_data
+        print(f"State: {state.timestamp}")
+
         # For debugging loss of state
-        print(f"T={hist_data.get('last_time',0)}")
-        hist_data['last_time'] = state.timestamp
+        # print(f"T={hist_data.get('last_time',0)}")
+        # hist_data['last_time'] = state.timestamp
 
-        for product in ['BANANAS','PEARLS']:
-            if product in state.order_depths.keys():
-                orders: list[Order] = alpha_trade(state, product)
-                if orders:
-                    result[product] = orders
+        # for product in ['BANANAS','PEARLS']:
+        #     if product in state.order_depths.keys():
+        #         orders: list[Order] = alpha_trade_book(state, product)
+        #         if orders:
+        #             result[product] = orders
 
-        if 'PINA_COLADAS' in state.order_depths.keys():
-            alpha_trade_pair(state, result)
+        # if 'PINA_COLADAS' in state.order_depths.keys():
+        #     alpha_trade_pair(state, result)
         
         if 'DIVING_GEAR' in state.order_depths.keys():
             orders = alpha_trade_diving_gear(state)
             if orders:
                 result['DIVING_GEAR'] = orders
 
-        if 'BERRIES' in state.order_depths.keys():
-            orders = alpha_trade_berries(state)
-            if orders:
-                result['BERRIES'] = orders
+        # if 'BERRIES' in state.order_depths.keys():
+        #     orders = alpha_trade_berries(state)
+        #     if orders:
+        #         result['BERRIES'] = orders
         
-        if 'PICNIC_BASKET' in state.order_depths.keys():
-            alpha_trade_basket(state, result)
+        # if 'PICNIC_BASKET' in state.order_depths.keys():
+        #     alpha_trade_basket(state, result)
         
         update_state_trades(state)
         print(f'\n{state.timestamp} {state.toJSON()}')

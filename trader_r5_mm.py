@@ -55,6 +55,8 @@ Parameters to store:
 - Diving gear price ema
 - Basket signal ema
 - Pair signal ema
+
+- Olivia signal
 """
 hist_data = {
     'last_time': 0
@@ -379,8 +381,8 @@ def alpha_trade_diving_gear(state: TradingState):
         else:
             break
 
-    if px_offset_dolphins == 0:
-        mm_trades(sym, orders, fair_px, fair_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sz, ask_sz, active_buy, active_sell, POST_LEVELS[sym], POST_LEVELS[sym])
+    # if px_offset_dolphins == 0:
+    #     mm_trades(sym, orders, fair_px, fair_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sz, ask_sz, active_buy, active_sell, POST_LEVELS[sym], POST_LEVELS[sym])
     
     hist_data['DG_PX_EMA'] = ema_calculate(mid, px_ema, 1/80)
     if dolphins != prev_dolphins:
@@ -388,8 +390,6 @@ def alpha_trade_diving_gear(state: TradingState):
         hist_data['dolphins_ema'] = ema_calculate(dolphins, dolphins_ema, 1/20)
 
     return orders
-
-
 
 
 def berries_time_offset(time):
@@ -592,19 +592,19 @@ class Trader:
         # print(f"T={hist_data.get('last_time',0)}")
         # hist_data['last_time'] = state.timestamp
 
-        # for product in ['BANANAS','PEARLS']:
-        #     if product in state.order_depths.keys():
-        #         orders: list[Order] = alpha_trade_book(state, product)
-        #         if orders:
-        #             result[product] = orders
+        for product in ['BANANAS','PEARLS']:
+            if product in state.order_depths.keys():
+                orders: list[Order] = alpha_trade_book(state, product)
+                if orders:
+                    result[product] = orders
 
         # if 'PINA_COLADAS' in state.order_depths.keys():
         #     alpha_trade_pair(state, result)
         
-        if 'DIVING_GEAR' in state.order_depths.keys():
-            orders = alpha_trade_diving_gear(state)
-            if orders:
-                result['DIVING_GEAR'] = orders
+        # if 'DIVING_GEAR' in state.order_depths.keys():
+        #     orders = alpha_trade_diving_gear(state)
+        #     if orders:
+        #         result['DIVING_GEAR'] = orders
 
         # if 'BERRIES' in state.order_depths.keys():
         #     orders = alpha_trade_berries(state)

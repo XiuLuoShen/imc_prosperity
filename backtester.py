@@ -13,7 +13,7 @@ import sys
 sys.stdout = open('./backtest_logs/backtest.log','wt')
 
 round = 4
-day = 3
+day = 4
 TRAINING_DATA_PREFIX = f"./hist_data/island-data-bottle-round-{round}"
 
 # Timesteps used in training files
@@ -75,8 +75,8 @@ def process_trades(df_trades, states: dict[int, TradingState], time_limit):
                 symbol, 
                 trade['price'], 
                 trade['quantity'], 
-                '', #trade['buyer'], 
-                '', #trade['seller'], 
+                trade['buyer'], #, 
+                trade['seller'], 
                 time)
         states[time].market_trades[symbol].append(t)
        
@@ -98,7 +98,10 @@ def simulate_alternative(round: int, day: int, trader, time_limit=999900):
     prices_path = f"{TRAINING_DATA_PREFIX}/prices_round_{round}_day_{day}.csv"
     trades_path = f"{TRAINING_DATA_PREFIX}/trades_round_{round}_day_{day}_wn.csv"
     df_prices = pd.read_csv(prices_path, sep=';')
-    df_trades = pd.read_csv(trades_path, sep=';')
+    try:
+        df_trades = pd.read_csv(trades_path, sep=';')
+    except FileNotFoundError:
+        df_trades = pd.DataFrame()
     states = process_prices(df_prices, time_limit)
     process_trades(df_trades, states, time_limit)
     position = copy.copy(states[0].position)

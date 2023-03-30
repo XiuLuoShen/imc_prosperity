@@ -37,6 +37,7 @@ POST_LEVELS = {
     "COCONUTS": 1,
     "PINA_COLADAS": 1,
     "DIVING_GEAR": 2,
+    "PICNIC_BASKET": 3,
 }
 
 POSITIONS_OFFSET = {
@@ -45,6 +46,7 @@ POSITIONS_OFFSET = {
     "PINA_COLADAS": 0.005,
     "COCONUTS": 0.00266666,
     "DIVING_GEAR": 0.075,
+    "PICNIC_BASKET": 0.03,
 }
 
 """
@@ -64,6 +66,28 @@ hist_data = {
     # 'BASKET_SIGNAL'
     # PAIR_SIGNAL
 }
+
+def check_olivia_trade(state, sym):
+    market_trades = state.market_trades.get(sym, [])
+    for t in market_trades:
+        if t.buyer == 'Olivia':
+            hist_data[f'Olivia_{sym}'] = 10
+            return
+        elif t.seller == 'Olivia':
+            hist_data[f'Olivia_{sym}'] = -10
+            return
+    own_trades = state.own_trades.get(sym, [])
+    for t in own_trades:
+        if t.buyer == 'Olivia':
+            hist_data[f'Olivia_{sym}'] = 10
+            return
+        elif t.seller == 'Olivia':
+            hist_data[f'Olivia_{sym}'] = -10
+            return
+
+def get_olivia_px_offset(sym):
+    return hist_data.get(f'Olivia_{sym}', 0)
+
 
 PAIR_SYMBOLS = ['PINA_COLADAS','COCONUTS']
 PAIR_WEIGHTS = [-1, 15/8]
@@ -485,46 +509,41 @@ def get_basket_positions(px_signal, signal_ema, curr_pos):
     """
     side = np.sign(px_signal)
     abs_signal = abs(px_signal)
-    target_pos = curr_pos.copy()
+    target_pos = curr_pos
 
     # Maximum position at 2
     entry = 1.25
     exit = 0.25
 
-    curr_rel_pos = [0,0,0,0]
-    for i in range(4):
-        # Get absolute relative positions
-        curr_rel_pos[i] = -side*curr_pos[i]/BASKET_WEIGHTS[i]
+    # Get absolute relative position
+    curr_rel_pos = side*curr_pos
 
     if abs_signal > entry:
         # Enter whenever the signal falls lower than
-        min_pos = max(curr_rel_pos)
+        min_pos = curr_rel_pos
         target_min = math.floor((abs_signal-entry)*35+5)
         if abs_signal > entry-0.25 and side*(px_signal-signal_ema) < -0.05:
             # Increase bet size if signal has began to trend down but still above entry
             target_min = max(min_pos+25, target_min+25)
 
         target_min = min(target_min, POSITION_LIMITS['PICNIC_BASKET'])
-            # Adjust for previous high signals
+        # Adjust for previous high signals
         min_pos = max(min_pos,target_min)
-        target_pos = [-side*round(min_pos*BASKET_WEIGHTS[i]) for i in range(4)]
+        target_pos = min_pos*side
 
-    if curr_pos[0] > 0 or curr_pos[1] < 0 or curr_pos[2] < 0 or curr_pos[3] < 0:
+    if curr_pos > 0:
         if px_signal < exit and px_signal-signal_ema >= 0:
             side = -1
-            target_pos = [0,0,0,0]
-
-    elif curr_pos[0] < 0 or curr_pos[1] > 0 or curr_pos[1] > 0 or curr_pos[3] > 0:
+            target_pos = 0
+    elif curr_pos < 0:
         if px_signal > -exit and px_signal-signal_ema <= 0:
-            side = -np.sign(curr_pos[0])
-            target_pos = [0,0,0,0]
+            side = -np.sign(curr_pos)
+            target_pos = 0
 
-    for i in range(4):
-        # Ensure that position is valid
-        target_pos[i] = min(abs(target_pos[i]), POSITION_LIMITS[BASKET_COMPONENTS[i]])*np.sign(target_pos[i])
+    # Ensure that position is valid
+    target_pos = min(abs(target_pos), POSITION_LIMITS['PICNIC_BASKET'])*np.sign(target_pos)
 
     return target_pos, side
-
 
 def get_basket_sym_trade(sym, curr_pos, target_pos, side, bids, asks, bid_szs, ask_szs):
     """
@@ -548,10 +567,8 @@ def get_basket_sym_trade(sym, curr_pos, target_pos, side, bids, asks, bid_szs, a
 
 
 def alpha_trade_basket(state: TradingState, result_orders: Dict[str, List[Order]]):
-
     # 0-BASKET, 1-DIP, 2-BAGUETTE, 3-UKULELE
     bids, asks, bid_szs, ask_szs = [], [], [], []
-    curr_pos = []
     for sym in BASKET_COMPONENTS:
         valid, bidi, aski, bid_szi, ask_szi = get_bids_asks(state.order_depths[sym])
         if not valid:
@@ -560,7 +577,10 @@ def alpha_trade_basket(state: TradingState, result_orders: Dict[str, List[Order]
         asks.append(aski)
         bid_szs.append(bid_szi)
         ask_szs.append(ask_szi)
-        curr_pos.append(state.position.get(sym, 0))
+
+    sym = BASKET_COMPONENTS[0]
+
+    curr_pos = state.position.get(sym, 0)
         
     mids = [0,0,0,0]
     for i in range(4):
@@ -569,17 +589,94 @@ def alpha_trade_basket(state: TradingState, result_orders: Dict[str, List[Order]
     px_signal = get_basket_signal(mids)
     global hist_data
     signal_ema = hist_data.get('BASKET_SIGNAL_EMA', px_signal)
-
     hist_data['BASKET_SIGNAL_EMA'] = ema_calculate(px_signal, signal_ema, 1/50)
-
-    target_pos, side = get_basket_positions(px_signal, signal_ema,  curr_pos)
+    target_pos, side = get_basket_positions(px_signal, signal_ema, curr_pos)
     
-    for i, sym in enumerate(BASKET_COMPONENTS):
-        trade = get_basket_sym_trade(sym, curr_pos[i], target_pos[i], -1*side*np.sign(BASKET_WEIGHTS[i]), bids[i], asks[i], bid_szs[i], ask_szs[i])
-        if trade:
-            result_orders[sym] = [trade]
+    trade = get_basket_sym_trade(sym, curr_pos, target_pos, side, bids[0], asks[0])
+    if trade:
+        result_orders[sym] = [trade]
 
     return
+
+def alpha_trade_basket(state: TradingState, result_orders: Dict[str, List[Order]]):
+    # 0-BASKET, 1-DIP, 2-BAGUETTE, 3-UKULELE
+    bids, asks, bid_szs, ask_szs = [], [], [], []
+    for sym in BASKET_COMPONENTS:
+        valid, bidi, aski, bid_szi, ask_szi = get_bids_asks(state.order_depths[sym])
+        if not valid:
+            return
+        bids.append(bidi)
+        asks.append(aski)
+        bid_szs.append(bid_szi)
+        ask_szs.append(ask_szi)
+
+    sym = BASKET_COMPONENTS[0]
+    curr_pos = state.position.get(sym, 0)
+    mids = [0,0,0,0]
+    for i in range(4):
+        mids[i] = (bids[i][0] + asks[i][0])/2
+
+    px_signal = get_basket_signal(mids)
+    # global hist_data
+    # signal_ema = hist_data.get('BASKET_SIGNAL_EMA', px_signal)
+    # hist_data['BASKET_SIGNAL_EMA'] = ema_calculate(px_signal, signal_ema, 1/50)
+    # target_pos, side = get_basket_positions(px_signal, signal_ema, curr_pos)
+    
+    orders = basket_mm_trade(state, sym, bids[0], asks[0], bid_szs[0], ask_szs[0], px_signal*7)
+    if orders:
+        result_orders[sym] = orders
+
+    return
+
+def basket_mm_trade(state, sym, bids, asks, bid_sz, ask_sz, signal):
+    curr_pos = state.position.get(sym, 0)
+    long_vol_avail, short_vol_avail = get_long_short_qty(sym, curr_pos)
+
+    mid = (bids[0] + asks[0])/2
+    fair_px = mid + signal - POSITIONS_OFFSET[sym]*curr_pos
+    fair_buy_px = fair_px - 0.5
+    fair_sell_px = fair_px + 0.5
+
+    # if short_vol_avail == 0 and (asks[0]-bids[0]) >= 2:
+    #     fair_sell_px = asks[0] - 1
+    #     fair_buy_px = bids[0] + 1
+    # elif long_vol_avail == 0 and (asks[0]-bids[0]) >= 2:
+    #     fair_buy_px = bids[0] + 1
+    #     fair_sell_px = asks[0] - 1
+
+    orders = []
+    active_buy = active_sell = 0
+    for i in range(min(2, len(asks))):
+        if asks[i] < fair_px and long_vol_avail:
+            take_size = get_max_active_quantity(fair_px, asks[i], 1, long_vol_avail, POSITIONS_OFFSET[sym])
+            if take_size > 0:
+                long_vol_avail -= take_size
+                ask_sz[i] -= take_size
+                curr_pos += take_size # Adjust position for posting
+                active_buy = 1
+                orders.append(AlgoOrder(sym, asks[i], 'BUY', take_size, note=f'X{i}'))
+        else:
+            break
+    for i in range(min(2, len(bids))):
+        if bids[i] > fair_px and short_vol_avail:
+            take_size = get_max_active_quantity(fair_px, bids[i], -1, short_vol_avail, POSITIONS_OFFSET[sym])
+
+            if take_size > 0:
+                short_vol_avail -= take_size
+                bid_sz[i] -= take_size
+                curr_pos -= take_size # Adjust position for posting
+                active_sell = 1
+                orders.append(AlgoOrder(sym, bids[i], 'SELL', take_size, note=f'X{i}'))
+        else:
+            break
+
+    fair_px = mid + signal - POSITIONS_OFFSET[sym]*curr_pos
+    fair_buy_px = fair_sell_px = fair_px
+
+    mm_trades(sym, orders, fair_buy_px, fair_sell_px, curr_pos, long_vol_avail, short_vol_avail, bids, asks, bid_sz, ask_sz, active_buy, active_sell, POST_LEVELS[sym], POST_LEVELS[sym])
+    
+    return orders
+
 
 
 class Trader:
@@ -592,11 +689,11 @@ class Trader:
         # print(f"T={hist_data.get('last_time',0)}")
         # hist_data['last_time'] = state.timestamp
 
-        for product in ['BANANAS','PEARLS']:
-            if product in state.order_depths.keys():
-                orders: list[Order] = alpha_trade_book(state, product)
-                if orders:
-                    result[product] = orders
+        # for product in ['BANANAS','PEARLS']:
+        #     if product in state.order_depths.keys():
+        #         orders: list[Order] = alpha_trade_book(state, product)
+        #         if orders:
+        #             result[product] = orders
 
         # if 'PINA_COLADAS' in state.order_depths.keys():
         #     alpha_trade_pair(state, result)
@@ -611,8 +708,8 @@ class Trader:
         #     if orders:
         #         result['BERRIES'] = orders
         
-        # if 'PICNIC_BASKET' in state.order_depths.keys():
-        #     alpha_trade_basket(state, result)
+        if 'PICNIC_BASKET' in state.order_depths.keys():
+            alpha_trade_basket(state, result)
         
         update_state_trades(state)
         print(f'\n{state.timestamp} {state.toJSON()}')

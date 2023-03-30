@@ -13,7 +13,7 @@ import sys
 sys.stdout = open('./backtest_logs/backtest.log','wt')
 
 round = 4
-day = 4
+day = 3
 TRAINING_DATA_PREFIX = f"./hist_data/island-data-bottle-round-{round}"
 
 # Timesteps used in training files

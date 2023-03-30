@@ -68,24 +68,27 @@ hist_data = {
 }
 
 def check_olivia_trade(state, sym):
+    global hist_data
     market_trades = state.market_trades.get(sym, [])
     for t in market_trades:
         if t.buyer == 'Olivia':
-            hist_data[f'Olivia_{sym}'] = 10
-            return
+            hist_data[f'Olivia_{sym}'] = 5
+            return 5
         elif t.seller == 'Olivia':
-            hist_data[f'Olivia_{sym}'] = -10
-            return
+            hist_data[f'Olivia_{sym}'] = -5
+            return -5
     own_trades = state.own_trades.get(sym, [])
     for t in own_trades:
         if t.buyer == 'Olivia':
-            hist_data[f'Olivia_{sym}'] = 10
-            return
+            hist_data[f'Olivia_{sym}'] = 5
+            return 5
         elif t.seller == 'Olivia':
-            hist_data[f'Olivia_{sym}'] = -10
-            return
+            hist_data[f'Olivia_{sym}'] = -5
+            return -5
+    return 0
 
-def get_olivia_px_offset(sym):
+def get_olivia_position(sym):
+    global hist_data
     return hist_data.get(f'Olivia_{sym}', 0)
 
 
@@ -678,6 +681,29 @@ def basket_mm_trade(state, sym, bids, asks, bid_sz, ask_sz, signal):
     return orders
 
 
+def alpha_trade_olivia(state, product):
+    check_olivia_trade(state, product)
+    olivia_alpha = get_olivia_position(product)
+
+    if olivia_alpha == 0:
+        return []
+    
+    curr_pos = state.position.get(product, 0)
+    long_vol_avail = POSITION_LIMITS[product]-curr_pos
+    short_vol_avail = abs(-POSITION_LIMITS[product]-curr_pos)
+
+    order_depth: OrderDepth = state.order_depths[product]
+    valid, bids, asks, bid_sizes, ask_sizes = get_bids_asks(order_depth)
+
+    orders = []
+    if olivia_alpha > 0 and long_vol_avail != 0:
+        # Buy at the low
+        orders.append(AlgoOrder(product, asks[0]+1, 'BUY', long_vol_avail, note=f'X0'))
+    elif olivia_alpha < 0 and short_vol_avail != 0:
+        orders.append(AlgoOrder(product, bids[0]-1, 'SELL', short_vol_avail, note=f'X0'))
+
+    return orders
+
 
 class Trader:
     def run(self, state: TradingState) -> Dict[str, List[Order]]:
@@ -710,6 +736,12 @@ class Trader:
         
         if 'PICNIC_BASKET' in state.order_depths.keys():
             alpha_trade_basket(state, result)
+
+        for sym in ['UKULELE','BAGUETTE','DIP']:
+            if sym in state.order_depths.keys():
+                orders = alpha_trade_olivia(state, sym)
+                if orders:
+                    result[sym] = orders
         
         update_state_trades(state)
         print(f'\n{state.timestamp} {state.toJSON()}')

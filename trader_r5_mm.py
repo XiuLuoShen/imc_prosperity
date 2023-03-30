@@ -296,7 +296,7 @@ def alpha_trade_pair(state: TradingState, result_orders: Dict[str, List[Order]])
     px_signal = np.clip(px_signal, -2.25, 2.25)
 
     for i, sym in enumerate(PAIR_SYMBOLS):
-        orders = pair_mm_trade(state, sym, bids[i], asks[i], bid_szs[i], ask_szs[i], px_signal*np.sign(PAIR_WEIGHTS[i]))
+        orders = pair_mm_trade(state, sym, bids[i], asks[i], bid_szs[i], ask_szs[i], 1.5*px_signal*np.sign(PAIR_WEIGHTS[i]))
         if orders:
             result_orders[sym] = orders
 
@@ -468,10 +468,12 @@ def alpha_trade_berries(state: TradingState):
     # elif time >= 5100 and time <= 6000 and olivia_alpha != 0:
     # #     # Now take on same general trend as Olivia
     #     fair_px += olivia_alpha
-    elif time >= 5200 and get_olivia_trades(product) < 2:
+    elif time <= 7000 and time >= 5200 and get_olivia_trades(product) < 2:
         # olvia hasn't bought the minimum yet
         fair_px += olivia_alpha
         fair_px -= position_offset
+    elif time >= 7000 and get_olivia_trades(product) < 2:
+        fair_px += olivia_alpha
 
     if time <= 3500 or time >= 7500:
         fair_px -= 0.004*curr_pos
@@ -638,8 +640,8 @@ class Trader:
         #         if orders:
         #             result[product] = orders
 
-        # if 'PINA_COLADAS' in state.order_depths.keys():
-        #     alpha_trade_pair(state, result)
+        if 'PINA_COLADAS' in state.order_depths.keys():
+            alpha_trade_pair(state, result)
         
         # if 'DIVING_GEAR' in state.order_depths.keys():
         #     orders = alpha_trade_diving_gear(state)

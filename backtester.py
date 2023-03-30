@@ -1,4 +1,6 @@
 from trader_r5_mm import Trader
+# from trader_r5 import Trader
+
 
 from datamodel import *
 from typing import Any
@@ -13,7 +15,7 @@ import sys
 sys.stdout = open('./backtest_logs/backtest.log','wt')
 
 round = 4
-day = 3
+day = 4
 TRAINING_DATA_PREFIX = f"./hist_data/island-data-bottle-round-{round}"
 
 # Timesteps used in training files
